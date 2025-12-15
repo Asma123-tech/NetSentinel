@@ -1,0 +1,46 @@
+use_default_settings: true
+
+general:
+  instance_name: "My SearxNG"
+
+search:
+  safe_search: 0
+  formats:
+    - html
+    - json
+
+server:
+  secret_key: "kjanfkjenkfewn"
+  image_proxy: true
+
+outgoing:
+  request_timeout: 20
+  retries: 2
+  keepalive_expiry: 10.0
+
+engines:
+  # 🔴 Disable Startpage (text)
+  - name: startpage
+    disabled: true
+
+  # 🔴 Disable Startpage (images)
+  - name: startpage images
+    disabled: true
+
+  # 🔴 Disable DuckDuckGo (text)
+  - name: duckduckgo
+    disabled: true
+
+  # 🔴 Disable DuckDuckGo (images)
+  - name: duckduckgo images
+    disabled: true
+
+  # your original overrides
+  - name: pinterest
+    disabled: true
+
+  - name: ahmia
+    disabled: true
+
+  - name: torch
+    disabled: true

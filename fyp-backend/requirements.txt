@@ -1,0 +1,23 @@
+fastapi
+uvicorn[standard]
+
+SQLAlchemy
+psycopg2-binary
+
+pydantic
+pydantic-settings
+
+requests
+
+# For CORS middleware
+python-multipart
+
+# Image censoring
+nudenet
+Pillow
+
+torch
+transformers
+
+huggingface-hub
+typing_extensions
