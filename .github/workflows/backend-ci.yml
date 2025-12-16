@@ -11,38 +11,52 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1 Get source code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2️⃣ Set up Python
+      # 2 Set up Python (for basic validation)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3️⃣ Install backend dependencies
+      # 3 Install backend dependencies (NO Docker here)
       - name: Install dependencies
         working-directory: fyp-backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install flake8 pytest
+           pip install flake8 pytest
 
-      # 4️⃣ Lint backend code
+      # 4 Lint backend code
       - name: Lint code
         working-directory: fyp-backend
         run: |
           flake8 app || true
 
-      # 5️⃣ Run backend tests (if any)
+      # 5 Run tests (safe if no tests exist)
       - name: Run tests
         working-directory: fyp-backend
         run: |
-          pytest || echo "No tests found"
+          if [ -d "tests" ]; then pytest; else echo "No tests found"; fi
 
-      # 6️⃣ Build Docker image (Dockerfile validation)
-      - name: Build Docker image
-        working-directory: fyp-backend
+      # 6 Free disk space (IMPORTANT)
+      - name: Free disk space
         run: |
-          docker build -t netsentinel-backend .
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get clean
+
+      # 7 Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # 8 Build Docker image (CI only, no push)
+      - name: Build backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./fyp-backend
+          file: ./fyp-backend/Dockerfile
+          push: false
+          tags: netsentinel-backend:ci
