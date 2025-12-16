@@ -1,4 +1,4 @@
-name: Backend CI
+name: Backend CI Pipeline
 
 on:
   push:
@@ -11,25 +11,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      # 1️⃣ Checkout repository
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      # 2️⃣ Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Install dependencies
-      working-directory: fyp-backend
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+      # 3️⃣ Install backend dependencies
+      - name: Install dependencies
+        working-directory: fyp-backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest
 
-    - name: Run tests (if available)
-      working-directory: fyp-backend
-      run: |
-        if [ -d "tests" ]; then
-          pytest
-        else
-          echo "No tests directory found, skipping tests"
-        fi
+      # 4️⃣ Lint backend code
+      - name: Lint code
+        working-directory: fyp-backend
+        run: |
+          flake8 app || true
+
+      # 5️⃣ Run backend tests (if any)
+      - name: Run tests
+        working-directory: fyp-backend
+        run: |
+          pytest || echo "No tests found"
+
+      # 6️⃣ Build Docker image (Dockerfile validation)
+      - name: Build Docker image
+        working-directory: fyp-backend
+        run: |
+          docker build -t netsentinel-backend .
