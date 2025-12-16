@@ -10,24 +10,40 @@ jobs:
   backend-ci:
     runs-on: ubuntu-latest
 
+    # PostgreSQL service inside CI
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: netsentinel
+          POSTGRES_USER: netsentinel
+          POSTGRES_PASSWORD: netsentinel
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U netsentinel"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
     steps:
       # 1 Get source code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2 Set up Python (for basic validation)
+      # 2️ Set up Python (for validation & tests)
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      # 3 Install backend dependencies (NO Docker here)
+      # 3️ Install backend dependencies (NO Docker here)
       - name: Install dependencies
         working-directory: fyp-backend
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-           pip install flake8 pytest
+          pip install flake8 pytest
 
       # 4 Lint backend code
       - name: Lint code
@@ -38,25 +54,34 @@ jobs:
       # 5 Run tests (safe if no tests exist)
       - name: Run tests
         working-directory: fyp-backend
+        env:
+          DATABASE_URL: postgresql://netsentinel:netsentinel@localhost:5432/netsentinel
         run: |
           if [ -d "tests" ]; then pytest; else echo "No tests found"; fi
 
-      # 6 Free disk space (IMPORTANT)
+      # 6 Free disk space (VERY IMPORTANT)
       - name: Free disk space
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /usr/local/lib/android
           sudo apt-get clean
 
-      # 7 Set up Docker Buildx
+      # 7 Login to Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 8 Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 8 Build Docker image (CI only, no push)
-      - name: Build backend Docker image
+      # 9 Build & Push Docker image
+      - name: Build and Push backend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./fyp-backend
           file: ./fyp-backend/Dockerfile
-          push: false
-          tags: netsentinel-backend:ci
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/netsentinel-backend:latest
