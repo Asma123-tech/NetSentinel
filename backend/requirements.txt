@@ -1,0 +1,27 @@
+# requirements.txt  — UPDATED (security modules added)
+
+# ── Original dependencies (unchanged) ────────────────────────
+fastapi
+uvicorn[standard]
+
+SQLAlchemy
+psycopg2-binary
+
+pydantic
+pydantic-settings
+
+requests
+
+# For CORS middleware
+python-multipart
+
+# Image censoring
+#nudenet
+Pillow
+#torch --index-url https://download.pytorch.org/whl/cpu
+#transformers
+
+# ── MODULE 4: Authentication & Session Management ─────────────
+python-jose[cryptography]   # JWT creation and validation
+passlib[bcrypt]             # bcrypt password hashing
+email-validator             # email field validation in Pydantic

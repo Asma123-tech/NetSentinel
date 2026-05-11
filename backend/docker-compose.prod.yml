@@ -1,0 +1,71 @@
+# ─────────────────────────────────────────────────────────────
+# docker-compose.prod.yml — Production overrides
+# ─────────────────────────────────────────────────────────────
+# HOW TO USE:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# This file OVERRIDES docker-compose.yml for production.
+# It does NOT replace it — both files are used together.
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  # ── PostgreSQL — production hardening ──────────────────────
+  db:
+    environment:
+      POSTGRES_DB: netsentinel
+      POSTGRES_USER: netsentinel
+      # In production: set this in your .env file on the server
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    # No port exposure in production — only backend can reach it
+    ports: []
+    expose:
+      - "5432"
+
+  # ── SearXNG — no external port in production ───────────────
+  searxng:
+    # Not exposed to public — only backend talks to it
+    ports: []
+    expose:
+      - "8080"
+
+  # ── Backend — production mode ───────────────────────────────
+  backend:
+    # No volume mount in production — use the built image as-is
+    volumes: []
+    # Drop --reload flag — never use hot reload in production
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 2
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    # No direct port exposure — Nginx handles incoming traffic
+    ports: []
+    expose:
+      - "8000"
+
+  # ── Frontend — production build ─────────────────────────────
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+      args:
+        # In production: replace with your Oracle VM public IP
+        # Example: http://123.456.789.000
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+    # No direct port exposure — Nginx handles incoming traffic
+    ports: []
+    expose:
+      - "3000"
+
+  # ── Nginx — only exists in production ──────────────────────
+  nginx:
+    build:
+      context: ../nginx
+      dockerfile: Dockerfile
+    container_name: netsentinel_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped

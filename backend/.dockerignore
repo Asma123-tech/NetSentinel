@@ -1,0 +1,48 @@
+# Python cache — regenerated inside Docker
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist
+build
+
+# Virtual environments — not needed inside Docker
+venv
+.venv
+env
+.env_local
+
+# Environment files — never bake secrets into image
+.env
+.env.local
+.env.production
+
+# Version control
+.git
+.gitignore
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor config
+.vscode
+.idea
+*.swp
+*.swo
+
+# Docker files themselves
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Test artifacts
+.pytest_cache
+.coverage
+htmlcov
+
+# README and docs
+README.md
+*.md

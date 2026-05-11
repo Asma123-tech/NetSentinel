@@ -1,0 +1,80 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #0b1220;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #070a12;
+    --foreground: #e8edf7;
+  }
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial);
+}
+
+/* subtle nicer selection */
+::selection {
+  background: rgba(59, 130, 246, 0.25);
+}
+/* Floating + parallax animation */
+@keyframes float-parallax {
+  0%   { transform: translate(0px, 0px) rotate(0deg); }
+  25%  { transform: translate(12px, -10px) rotate(2deg); }
+  50%  { transform: translate(-8px, 8px) rotate(-1deg); }
+  75%  { transform: translate(6px, -6px) rotate(1deg); }
+  100% { transform: translate(0px, 0px) rotate(0deg); }
+}
+
+.animate-float {
+  animation-name: float-parallax;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+
+.duration-slow   { animation-duration: 14s; }
+.duration-medium { animation-duration: 12s; }
+.duration-fast   { animation-duration: 10s; }
+
+.delay-0 { animation-delay: 0s; }
+.delay-2 { animation-delay: 2s; }
+.delay-4 { animation-delay: 4s; }
+.delay-6 { animation-delay: 6s; }
+.delay-8 { animation-delay: 8s; }
+/* Example CSS for floating animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-float { animation: float 6s ease-in-out infinite; }
+.animate-float-slow { animation: float 12s ease-in-out infinite; }
+
+
+
+
+
+ @keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+} 
+
