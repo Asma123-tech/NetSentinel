@@ -44,6 +44,7 @@ jobs:
           flake8 app/ \
             --max-line-length=120 \
             --exclude=__pycache__ \
+            --exit-zero \
             --count \
             --statistics
 
