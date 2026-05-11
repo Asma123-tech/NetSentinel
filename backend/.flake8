@@ -1,0 +1,26 @@
+[flake8]
+max-line-length = 120
+
+# Ignore stylistic choices that don't affect functionality:
+# E221 - multiple spaces before operator (used for alignment)
+# E203 - whitespace before ':' (used in slice notation)
+# E251 - unexpected spaces around keyword/parameter equals (alignment)
+# E261 - inline comment spacing
+# E302 - expected 2 blank lines (relaxed for compact code)
+# E305 - expected 2 blank lines after function
+# E402 - module level import not at top (sometimes unavoidable)
+# W292 - no newline at end of file
+# W293 - blank line contains whitespace
+extend-ignore = E221, E203, E251, E261, E302, E305, E402, W292, W293
+
+# Keep these important checks active:
+# F401 - unused imports
+# F841 - local variable assigned but never used
+
+# Folders to skip
+exclude =
+    __pycache__,
+    .git,
+    .venv,
+    venv,
+    migrations

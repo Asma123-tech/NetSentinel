@@ -1,7 +1,6 @@
 # app/routers/history.py
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from fastapi.responses import StreamingResponse
 import csv
 from io import StringIO

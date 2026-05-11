@@ -69,14 +69,14 @@ def perform_search(
     try:
         raw_results = provider.search(sanitized_query, filter_mode=effective_mode, limit=payload.limit)
         has_more = len(raw_results) == payload.limit
-    except requests.HTTPError as e:
+    except requests.HTTPError:
         logger.exception("Upstream search provider HTTP error")
         return schemas.SearchResponse(results=[], has_more=False)
-    except requests.RequestException as e:
+    except requests.RequestException:
         logger.exception("Failed to contact upstream search provider")
         return schemas.SearchResponse(results=[], has_more=False)
-    except Exception as e:
-        raise e
+    except Exception:
+        raise
 
     filtered, blocked_count = filter_results(
         raw_results,
