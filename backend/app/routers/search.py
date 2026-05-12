@@ -101,6 +101,8 @@ def perform_search(
         now = datetime.utcnow()
         out: List[schemas.SearchResultOut] = []
         for idx, r in enumerate(filtered, start=1):
+            if not r.get("url"):
+                continue
             out.append(
                 schemas.SearchResultOut(
                     id=idx,
@@ -127,6 +129,8 @@ def perform_search(
 
     db_results: List[models.SearchResult] = []
     for r in filtered:
+        if not r.get("url"):
+            continue
         row = models.SearchResult(
             query_id=q.id,
             title=r["title"],
