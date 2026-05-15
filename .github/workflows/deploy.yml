@@ -140,15 +140,12 @@ jobs:
       # ── Health check — confirm app is live ──────────────
       - name: Health check
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://netsentinel.duckdns.org/health) \
-            --insecure)
-
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --insecure https://netsentinel.duckdns.org/health)
           if [ "$STATUS" = "200" ]; then
-            echo "✅ Deployment successful! App is live."
-            echo "🌐 URL: https://netsentinel.duckdns.org"
+            echo "Deployment successful! App is live."
+            echo "URL: https://netsentinel.duckdns.org"
           else
-            echo "❌ Health check failed. HTTP status: $STATUS"
+            echo "Health check failed. HTTP status: $STATUS"
             exit 1
           fi
 
