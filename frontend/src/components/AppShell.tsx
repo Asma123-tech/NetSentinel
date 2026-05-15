@@ -21,7 +21,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex">
         <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        <main className="flex-1 p-4 sm:p-6 lg:ml-64">
+        <main className="flex-1 p-4 sm:p-6">
           <div className="mx-auto w-full max-w-6xl">{children}</div>
         </main>
       </div>

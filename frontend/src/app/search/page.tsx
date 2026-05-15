@@ -17,7 +17,7 @@ import {
 import { useSearchSettings } from '@/context/SearchSettingsContext';
 import type { SearchResult } from '@/types';
 import SearchResultCard from '@/components/SearchResult';
-import { performSearch,type FilterMode } from '@/lib/api';
+import { performSearch, type FilterMode } from '@/lib/api';
 
 
 // ---------------- THEME COLORS ----------------
@@ -27,7 +27,7 @@ const THEME = {
   heading: 'bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text', // NetSentinel heading gradient
 };
 
-type Tab = 'all'|'images';
+type Tab = 'all' | 'images';
 const PAGE_SIZE_ALL = 20;
 const PAGE_SIZE_IMAGES = 80;
 
@@ -36,8 +36,8 @@ function ModePill({ mode }: { mode: FilterMode }) {
     mode === 'strict'
       ? 'border-rose-200 bg-rose-50 text-rose-700'
       : mode === 'moderate'
-      ? 'border-amber-200 bg-amber-50 text-amber-700'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 
   const label =
     mode === 'strict' ? 'Strict' : mode === 'moderate' ? 'Moderate' : 'Relaxed';
@@ -199,41 +199,24 @@ export default function SearchPage() {
         style={{ backgroundImage: "url('/images/1.jpg')" }}
       />
 
-      {/* OVERLAY */}
-      <div className="fixed inset-0 -z-[4] bg-white/50 pointer-events-none md:block hidden"></div>
-      <div className="fixed inset-0 -z-[4] bg-white/30 pointer-events-none block md:hidden"></div>
-
       {/* FLOATING BACKGROUND IMAGES – only show on welcome */}
       {showWelcome && (
         <>
-          <div className="absolute animate-float-slow -top-8 -left-20 w-32">
+          <div className="fixed animate-float-slow top-48 sm:top-32 left-2 sm:left-20 w-16 sm:w-28" style={{ mixBlendMode: 'multiply' }}>
             <img src="/images/float1.png" alt="float1" />
           </div>
-          <div className="fixed animate-float-slow top-32 right-2 sm:right-20 w-20 sm:w-28">
+          <div className="fixed animate-float-slow top-48 sm:top-32 right-2 sm:right-20 w-16 sm:w-28" style={{ mixBlendMode: 'multiply' }}>
             <img src="/images/float4.png" alt="float2" />
-          </div>
-          <div className="absolute animate-float duration-medium
-                          top-[calc(100%-100px)]
-                          left-[8%]
-                          md:top-[calc(100%-110px)]
-                          md:left-[6%]
-                          lg:top-[calc(100%-120px)]
-                          lg:left-[5%]
-                          w-24">
-            <img src="/images/float3.png" alt="float3" />
-          </div>
-          <div className="fixed animate-float duration-fast bottom-12 right-2 sm:right-10 w-16 sm:w-24">
-            <img src="/images/float2.png" alt="float4" />
           </div>
         </>
       )}
 
       {/* HEADING */}
       <div className={`relative z-20 text-center transition-all duration-500 ${showWelcome ? '-mt-4' : '-mt-12'}`}>
-        <h1 className={`text-5xl font-extrabold ${THEME.heading}`}>
+        <h1 className="text-3xl sm:text-5xl font-extrabold text-black drop-shadow-[0_2px_8px_rgba(255,255,255,0.6)]">
           NetSentinel
         </h1>
-        <p className="text-slate-700 font-medium mt-1">
+        <p className="text-black/80 font-medium mt-1">
           Safe Search Engine
         </p>
       </div>
@@ -248,38 +231,47 @@ export default function SearchPage() {
           <input
             value={query}
             onChange={(e) => {
-  setQuery(e.target.value);
-  setHasSearched(false);
-}}
+              setQuery(e.target.value);
+              setHasSearched(false);
+            }}
             onKeyDown={(e) => e.key === 'Enter' && runSearch()}
             placeholder="Search the web freely and safely..."
-            className="w-full rounded-3xl border border-slate-300/50 bg-white/50 px-12 py-3 text-lg text-slate-900 font-medium shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-300"
+            className="w-full min-w-0 rounded-3xl border border-slate-300/50 bg-white/50 pl-12 pr-32 sm:pr-40 py-3 text-sm sm:text-lg text-slate-900 font-medium shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-300 overflow-x-auto"
           />
           <button
-  onClick={handleSearch}
-  className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2 rounded-2xl bg-gradient-to-r ${THEME.primary} px-5 py-2 text-white text-lg font-semibold shadow-md hover:scale-105 hover:shadow-lg transition-all duration-200`}
->
-  <Sparkles size={16} />
-  Search
-</button>
+            onClick={handleSearch}
+            className={`absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-2 rounded-2xl bg-gradient-to-r ${THEME.primary} px-3 sm:px-5 py-2 text-sm sm:text-lg font-semibold shadow-md hover:scale-105 hover:shadow-lg transition-all duration-200`}
+          >
+            <Sparkles size={16} />
+            Search
+          </button>
         </div>
       </div>
       {/* WHY NETSENTINEL BOX */}
       {showWelcome && (
-        <div className="relative max-w-5xl mx-auto bg-white/90 backdrop-blur-md rounded-3xl p-4 shadow-xl mt-8 flex flex-col md:flex-row items-center gap-4 transition-opacity duration-500">
-          <div className="flex-shrink-0 animate-float-slow">
-            <img
-              src="/images/why-image.png"
-              alt="Why NetSentinel"
-              className="w-44 md:w-52 object-contain drop-shadow-2xl"
-            />
-          </div>
-          <div className="text-center md:text-left flex-1">
-            <h2 className="text-3xl font-bold text-black mb-1">Why NetSentinel?</h2>
-            <p className="text-slate-700 leading-relaxed text-lg max-w-2xl">
-              NetSentinel is a secure search environment designed for your kids to protect
-              them from harmful content. Leveraging real-time filtering algorithms and customizable safety protocols, it ensures a safe browsing experience for educational and professional use.
-            </p>
+        <div className="relative max-w-5xl mx-auto bg-white/70 backdrop-blur-md rounded-3xl p-4 shadow-xl mt-8 transition-opacity duration-500">
+          <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+
+            {/* Owl + title inline on mobile / owl alone on desktop */}
+            <div className="flex items-center gap-3 md:block flex-shrink-0">
+              <img
+                src="/images/why-image (1).png"
+                alt="Why NetSentinel"
+                className="w-20 md:w-52 object-contain drop-shadow-2xl"
+              />
+              <h2 className="text-lg font-bold text-black leading-tight md:hidden">Why NetSentinel?</h2>
+            </div>
+
+            {/* Title above text on desktop / just text on mobile */}
+            <div className="flex-1">
+              <h2 className="hidden md:block text-3xl font-bold text-black mb-2">Why NetSentinel?</h2>
+              <p className="text-slate-700 leading-relaxed text-sm md:text-lg max-w-2xl">
+                NetSentinel is a secure search environment designed for your kids to protect
+                them from harmful content. Leveraging real-time filtering algorithms and customizable
+                safety protocols, it ensures a safe browsing experience for educational and professional use.
+              </p>
+            </div>
+
           </div>
         </div>
       )}
@@ -310,38 +302,38 @@ export default function SearchPage() {
         </div>
       )}
 
-     {/* Tabs */}
-{!showWelcome && (
-  <div className="flex justify-center mt-8">
-    <div className="inline-flex w-fit rounded-2xl border border-slate-200 bg-white/70 p-1 shadow-sm">
-      <button
-        onClick={() => handleTabChange('all')}
-        className={[
-          'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
-          activeTab === 'all'
-            ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
-            : 'text-slate-700 hover:bg-white',
-        ].join(' ')}
-      >
-        <List size={16} />
-        All
-      </button>
+      {/* Tabs */}
+      {!showWelcome && (
+        <div className="flex justify-center mt-8">
+          <div className="inline-flex w-fit rounded-2xl border border-slate-200 bg-white/70 p-1 shadow-sm">
+            <button
+              onClick={() => handleTabChange('all')}
+              className={[
+                'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
+                activeTab === 'all'
+                  ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-white',
+              ].join(' ')}
+            >
+              <List size={16} />
+              All
+            </button>
 
-      <button
-        onClick={() => handleTabChange('images')}
-        className={[
-          'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
-          activeTab === 'images'
-            ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
-            : 'text-slate-700 hover:bg-white',
-        ].join(' ')}
-      >
-        <ImageIcon size={16} />
-        Images
-      </button>
-    </div>
-  </div>
-)}
+            <button
+              onClick={() => handleTabChange('images')}
+              className={[
+                'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
+                activeTab === 'images'
+                  ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
+                  : 'text-slate-700 hover:bg-white',
+              ].join(' ')}
+            >
+              <ImageIcon size={16} />
+              Images
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Loading */}
       {showSpinner && (
@@ -453,43 +445,43 @@ export default function SearchPage() {
         </>
       )}
 
-     {/* Lightbox */}
-{selectedImage && (
-  <div
-    className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
-    onClick={() => setSelectedImage(null)}
-  >
-    <div
-      className="relative w-full max-w-5xl max-h-[85vh] overflow-hidden rounded-2xl bg-black shadow-2xl"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <button
-        className="absolute top-3 right-3 z-10 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white backdrop-blur hover:bg-white/20 transition"
-        onClick={() => setSelectedImage(null)}
-      >
-        Close
-      </button>
-
-      <img
-        src={getImageSrc(selectedImage.preview_url)}
-        alt={selectedImage.title}
-        className="max-w-full max-h-[85vh] object-contain mx-auto"
-      />
-
-      <div className="px-4 py-3 text-xs text-slate-200 bg-black/60 flex items-center justify-between gap-3">
-        <span className="truncate">{selectedImage.title}</span>
-        <a
-          href={selectedImage.url}
-          target="_blank"
-          rel="noreferrer"
-          className="underline whitespace-nowrap"
+      {/* Lightbox */}
+      {selectedImage && (
+        <div
+          className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedImage(null)}
         >
-          Open source page
-        </a>
-      </div>
-    </div>
-  </div>
-)}
+          <div
+            className="relative w-full max-w-5xl max-h-[85vh] overflow-hidden rounded-2xl bg-black shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              className="absolute top-3 right-3 z-10 rounded-full bg-white/10 px-3 py-1.5 text-xs text-white backdrop-blur hover:bg-white/20 transition"
+              onClick={() => setSelectedImage(null)}
+            >
+              Close
+            </button>
+
+            <img
+              src={getImageSrc(selectedImage.preview_url)}
+              alt={selectedImage.title}
+              className="max-w-full max-h-[85vh] object-contain mx-auto"
+            />
+
+            <div className="px-4 py-3 text-xs text-slate-200 bg-black/60 flex items-center justify-between gap-3">
+              <span className="truncate">{selectedImage.title}</span>
+              <a
+                href={selectedImage.url}
+                target="_blank"
+                rel="noreferrer"
+                className="underline whitespace-nowrap"
+              >
+                Open source page
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

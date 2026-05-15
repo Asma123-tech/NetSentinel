@@ -25,7 +25,7 @@ export default function Sidebar({
       <aside
         className={`fixed left-0 top-[57px] h-[calc(100vh-57px)] w-64 transform transition-transform duration-200 ease-in-out z-30
           border-r border-slate-200/70 bg-white/70 backdrop-blur-xl
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-4">
           <div className="mb-3 text-xs font-medium uppercase tracking-wider text-slate-500">
@@ -73,7 +73,7 @@ export default function Sidebar({
 
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black/40 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/40 z-20"
           onClick={() => setSidebarOpen(false)}
         />
       )}

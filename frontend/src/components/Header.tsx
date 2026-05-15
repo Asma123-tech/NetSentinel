@@ -16,7 +16,7 @@ export default function Header({
         <div className="flex items-center gap-4">
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="lg:hidden inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/70 p-2 shadow-sm hover:bg-white transition"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white/70 p-2 shadow-sm hover:bg-white transition"
           >
             {sidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
