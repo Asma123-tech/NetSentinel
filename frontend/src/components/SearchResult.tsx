@@ -1,4 +1,3 @@
-// src/components/SearchResult.tsx
 'use client';
 
 import { Shield, Image as ImageIcon, Video, FileText } from 'lucide-react';
@@ -22,42 +21,68 @@ export default function SearchResultCard({ result }: { result: SearchResult }) {
     : undefined;
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
-            {Icon}
-            <a
-              href={result.url}
-              className="text-sm text-green-700 hover:underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {result.url}
-            </a>
-          </div>
-          <a href={result.url} className="block" target="_blank" rel="noreferrer">
-            <h3 className="text-xl text-blue-600 hover:underline cursor-pointer mb-2">
-              {result.title}
-            </h3>
+    <div className="w-full max-w-full overflow-hidden rounded-2xl border border-gray-200 bg-white/90 p-4 sm:p-5 shadow-sm hover:shadow-md transition-shadow">
+
+      {/* FORCE NO OVERFLOW ROOT */}
+      <div className="flex flex-col gap-3 w-full min-w-0">
+
+        {/* URL ROW */}
+        <div className="flex items-center gap-2 w-full min-w-0">
+          {Icon}
+
+          <a
+            href={result.url}
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs sm:text-sm text-green-700 hover:underline break-all w-full"
+          >
+            {result.url}
           </a>
-          <p className="text-gray-700 leading-relaxed">{result.snippet}</p>
         </div>
 
-        <div className="flex flex-col items-end gap-2">
+        {/* MAIN CONTENT */}
+        <div className="flex flex-col md:flex-row gap-4 w-full min-w-0">
+
+          {/* TEXT */}
+          <div className="flex-1 min-w-0 w-full">
+
+            <a
+              href={result.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full"
+            >
+              <h3 className="text-base sm:text-lg font-semibold text-blue-600 hover:underline break-words leading-snug">
+                {result.title}
+              </h3>
+            </a>
+
+            <p className="mt-2 text-sm sm:text-base text-gray-700 leading-relaxed break-words w-full">
+              {result.snippet}
+            </p>
+          </div>
+
+          {/* IMAGE */}
           {thumbSrc && (
-            <div className="w-32 h-20 overflow-hidden rounded-md border border-gray-200">
-              <img
-                src={thumbSrc}
-                alt={result.title}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
+            <div className="w-full md:w-36 flex-shrink-0">
+              <div className="w-full h-40 sm:h-32 md:h-24 overflow-hidden rounded-xl border border-gray-200">
+                <img
+                  src={thumbSrc}
+                  alt={result.title}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+              </div>
+
+              <div className="mt-2 flex md:justify-end">
+                <span className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
+                  <Shield size={12} className="mr-1" />
+                  Safe
+                </span>
+              </div>
             </div>
           )}
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-            <Shield size={12} className="mr-1" /> Safe
-          </span>
+
         </div>
       </div>
     </div>

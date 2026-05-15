@@ -192,7 +192,7 @@ export default function SearchPage() {
 
 
   return (
-    <div className="relative min-h-screen pt-12 pb-24">
+    <div className="relative min-h-screen pt-10 pb-20 px-3 sm:px-6 overflow-x-hidden">
       {/* FULL BACKGROUND IMAGE */}
       <div
         className="fixed inset-0 -z-[5] bg-cover bg-center pointer-events-none blur-md scale-105"
