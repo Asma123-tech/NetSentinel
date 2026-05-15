@@ -141,11 +141,12 @@ jobs:
       - name: Health check
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            http://${{ secrets.ORACLE_VM_IP }}/health)
+            https://netsentinel.duckdns.org/health) \
+            --insecure)
 
           if [ "$STATUS" = "200" ]; then
             echo "✅ Deployment successful! App is live."
-            echo "🌐 URL: http://${{ secrets.ORACLE_VM_IP }}"
+            echo "🌐 URL: https://netsentinel.duckdns.org"
           else
             echo "❌ Health check failed. HTTP status: $STATUS"
             exit 1
