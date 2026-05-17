@@ -92,19 +92,10 @@ class GlobalSettings(Base):
     filter_mode       = Column(String(20), default="strict")
     parental_controls = Column(Boolean,    default=True)
     notifications     = Column(Boolean,    default=True)
-    save_history      = Column(Boolean,    default=True)   # ← actual column name
+    save_search_history = Column(Boolean, default=True)   # ← actual column name
     blocked_keywords  = Column(Text,       default="")
     allowed_domains   = Column(Text,       default="")
     updated_at        = Column(DateTime(timezone=True), onupdate=func.now())
-
-    @property
-    def save_search_history(self) -> bool:          # ← bridge property
-        return self.save_history
-
-    @save_search_history.setter
-    def save_search_history(self, value: bool):
-        self.save_history = value
-
 
 # ── UserSettings (per-user settings) ──────────────────────────
 

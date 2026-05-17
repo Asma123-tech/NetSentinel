@@ -29,7 +29,7 @@ from app.security.auth import (
     get_current_user,
 )
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 # ── Signup ─────────────────────────────────────────────────────
