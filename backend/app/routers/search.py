@@ -109,7 +109,7 @@ def perform_search(
                     title=r["title"],
                     url=r["url"],
                     snippet=r["snippet"],
-                    type=infer_result_type(r),
+                    type=infer_result_type(r).value,
                     timestamp=now,
                     preview_url=r.get("preview_url"),
                 )
@@ -136,7 +136,7 @@ def perform_search(
             title=r["title"],
             url=r["url"],
             snippet=r["snippet"],
-            type=infer_result_type(r),
+            type=infer_result_type(r).value,
             is_blocked=False,
         )
         db.add(row)
