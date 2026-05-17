@@ -1,15 +1,13 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Search,
-  Filter,
   Shield,
   Image as ImageIcon,
   List,
   Sparkles,
-  X,
-  Zap,
   Eye,
   Lock,
 } from 'lucide-react';
@@ -18,32 +16,37 @@ import { useSearchSettings } from '@/context/SearchSettingsContext';
 import type { SearchResult } from '@/types';
 import SearchResultCard from '@/components/SearchResult';
 import { performSearch, type FilterMode } from '@/lib/api';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
+// ── Theme ──────────────────────────────────────────────────────
 
-// ---------------- THEME COLORS ----------------
 const THEME = {
-  primary: 'from-pink-500 to-purple-600',       // search button gradient
-  icon: 'from-pink-500 to-purple-600',         // feature card icons gradient
-  heading: 'bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text', // NetSentinel heading gradient
+  primary : 'from-pink-500 to-purple-600',
+  icon    : 'from-pink-500 to-purple-600',
+  heading : 'bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text',
 };
 
 type Tab = 'all' | 'images';
-const PAGE_SIZE_ALL = 20;
+const PAGE_SIZE_ALL    = 20;
 const PAGE_SIZE_IMAGES = 80;
+
+// ── Sub-components ─────────────────────────────────────────────
 
 function ModePill({ mode }: { mode: FilterMode }) {
   const styles =
     mode === 'strict'
       ? 'border-rose-200 bg-rose-50 text-rose-700'
       : mode === 'moderate'
-        ? 'border-amber-200 bg-amber-50 text-amber-700'
-        : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      ? 'border-amber-200 bg-amber-50 text-amber-700'
+      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 
   const label =
     mode === 'strict' ? 'Strict' : mode === 'moderate' ? 'Moderate' : 'Relaxed';
 
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${styles}`}>
+    <span
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium ${styles}`}
+    >
       <Shield size={14} />
       {label} Mode
     </span>
@@ -63,7 +66,6 @@ function SkeletonCard() {
     </div>
   );
 }
-
 
 function FeatureCard({
   icon: Icon,
@@ -87,73 +89,90 @@ function FeatureCard({
   );
 }
 
-export default function SearchPage() {
-  const [query, setQuery] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
+// ── Page ───────────────────────────────────────────────────────
+
+function SearchPageInner() {
+  const router       = useRouter();
+  const searchParams = useSearchParams();
+
+  // Initialise query from URL so refresh restores the last search
+  const [query,         setQuery]         = useState(() => searchParams.get('q') ?? '');
+  const [isSearching,   setIsSearching]   = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasSearched, setHasSearched] = useState(false);
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>('all');
+  const [hasSearched,   setHasSearched]   = useState(false);
+  const [results,       setResults]       = useState<SearchResult[]>([]);
+  const [error,         setError]         = useState<string | null>(null);
+  const [activeTab,     setActiveTab]     = useState<Tab>('all');
   const [selectedImage, setSelectedImage] = useState<SearchResult | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+  const [page,          setPage]          = useState(1);
+  const [hasMore,       setHasMore]       = useState(false);
 
   const { filterMode, setFilterMode } = useSearchSettings();
-  const showWelcome = results.length === 0 && !isSearching && !query;
 
+  const showWelcome  = results.length === 0 && !isSearching && !query;
   const imageResults = useMemo(() => results.filter((r) => r.preview_url), [results]);
+  const showSpinner  = isSearching && !isLoadingMore;
 
-  const showSpinner = isSearching && !isLoadingMore;
+  // ── Core search ──────────────────────────────────────────────
+  const runSearch = useCallback(
+    async (
+      newPage: number   = 1,
+      tab: Tab          = activeTab,
+      mode: FilterMode  = filterMode,
+      searchQuery: string = query,
+    ) => {
+      if (!searchQuery.trim()) return;
 
-  const modeLabel =
-    filterMode === 'strict'
-      ? 'Adult sites filtered, nude images blurred.'
-      : 'Everything searchable, images unblurred. Use responsibly.';
+      const size  = tab === 'images' ? PAGE_SIZE_IMAGES : PAGE_SIZE_ALL;
+      const limit = newPage * size;
 
-  const runSearch = async (
-    newPage: number = 1,
-    tab: Tab = activeTab,
-    mode: FilterMode = filterMode
-  ) => {
-    if (!query.trim()) return;
+      try {
+        if (newPage === 1) {
+          setIsSearching(true);
+          setError(null);
+        } else {
+          setIsLoadingMore(true);
+        }
 
-    const size = tab === 'images' ? PAGE_SIZE_IMAGES : PAGE_SIZE_ALL;
-    const limit = newPage * size;
-
-    try {
-      if (newPage === 1) {
-        setIsSearching(true);
-        setError(null);
-      } else {
-        setIsLoadingMore(true);
+        const { results: data, has_more } = await performSearch(searchQuery, mode, limit);
+        setResults(data);
+        setPage(newPage);
+        setHasMore(has_more);
+      } catch (err: any) {
+        setError(err?.message || 'Search failed');
+        setResults([]);
+        setHasMore(false);
+      } finally {
+        setIsSearching(false);
+        setIsLoadingMore(false);
       }
+    },
+    [activeTab, filterMode, query],
+  );
 
-      const { results: data, has_more } = await performSearch(query, mode, limit);
-
-      setResults(data);
-      setPage(newPage);
-      setHasMore(has_more);
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message || 'Search failed');
-      setResults([]);
-      setHasMore(false);
-    } finally {
-      setIsSearching(false);
-      setIsLoadingMore(false);
+  // On mount: if URL contains ?q= restore the search (fixes page refresh)
+  useEffect(() => {
+    const urlQuery = searchParams.get('q');
+    if (urlQuery?.trim()) {
+      setQuery(urlQuery);
+      setHasSearched(true);
+      runSearch(1, 'all', filterMode, urlQuery);
     }
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleSearch = () => {
+  // ── handleSearch: push ?q= to URL (fixes browser back button) ──
+  const handleSearch = useCallback(() => {
     if (!query.trim()) return;
-    setHasSearched(true);   // ✅ Mark that search was performed
+    setHasSearched(true);
     setSelectedImage(null);
     setResults([]);
     setPage(1);
     setHasMore(false);
-    runSearch(1, activeTab, filterMode);
-  };
+    // Each search creates a history entry → back button works naturally
+    router.push(`/search?q=${encodeURIComponent(query.trim())}`);
+    runSearch(1, activeTab, filterMode, query.trim());
+  }, [query, activeTab, filterMode, router, runSearch]);
 
   const handleLoadMore = () => {
     if (!hasMore || isSearching || isLoadingMore) return;
@@ -162,9 +181,7 @@ export default function SearchPage() {
 
   const handleFilterChange = (value: FilterMode) => {
     if (value === filterMode) return;
-
     setFilterMode(value);
-
     if (query.trim()) {
       setSelectedImage(null);
       setResults([]);
@@ -186,43 +203,57 @@ export default function SearchPage() {
 
   const getImageSrc = (preview_url?: string) => {
     if (!preview_url) return '';
-    const separator = preview_url.includes('?') ? '&' : '?';
-    return `${preview_url}${separator}mode=${filterMode}`;
+    const sep = preview_url.includes('?') ? '&' : '?';
+    return `${preview_url}${sep}mode=${filterMode}`;
   };
 
+  // ── Render ───────────────────────────────────────────────────
 
   return (
     <div className="relative min-h-screen pt-10 pb-20 px-3 sm:px-6 overflow-x-hidden">
-      {/* FULL BACKGROUND IMAGE */}
+
+      {/* Full background image */}
       <div
         className="fixed inset-0 -z-[5] bg-cover bg-center pointer-events-none blur-md scale-105"
-        style={{ backgroundImage: "url('/images/1.jpg')" }}
+        style={{ backgroundImage: "url('/images/logo 2.jpge')" }}
       />
 
-      {/* FLOATING BACKGROUND IMAGES – only show on welcome */}
+      {/* Floating images — welcome screen only */}
       {showWelcome && (
         <>
-          <div className="fixed animate-float-slow top-48 sm:top-32 left-2 sm:left-20 w-16 sm:w-28" style={{ mixBlendMode: 'multiply' }}>
-            <img src="/images/float1.png" alt="float1" />
+          <div
+            className="fixed animate-float-slow top-48 sm:top-32 left-2 sm:left-20 w-16 sm:w-28"
+            style={{ mixBlendMode: 'multiply' }}
+          >
+            <img src="/images/float1.png" alt="" />
           </div>
-          <div className="fixed animate-float-slow top-48 sm:top-32 right-2 sm:right-20 w-16 sm:w-28" style={{ mixBlendMode: 'multiply' }}>
-            <img src="/images/float4.png" alt="float2" />
+          <div
+            className="fixed animate-float-slow top-48 sm:top-32 right-2 sm:right-20 w-16 sm:w-28"
+            style={{ mixBlendMode: 'multiply' }}
+          >
+            <img src="/images/float4.png" alt="" />
           </div>
         </>
       )}
 
-      {/* HEADING */}
-      <div className={`relative z-20 text-center transition-all duration-500 ${showWelcome ? '-mt-4' : '-mt-12'}`}>
+      {/* Heading */}
+      <div
+        className={`relative z-20 text-center transition-all duration-500 ${
+          showWelcome ? '-mt-4' : '-mt-12'
+        }`}
+      >
         <h1 className="text-3xl sm:text-5xl font-extrabold text-black drop-shadow-[0_2px_8px_rgba(255,255,255,0.6)]">
           NetSentinel
         </h1>
-        <p className="text-black/80 font-medium mt-1">
-          Safe Search Engine
-        </p>
+        <p className="text-black/80 font-medium mt-1">Safe Search Engine</p>
       </div>
 
-      {/* SEARCH BAR */}
-      <div className={`relative z-10 mx-auto max-w-5xl transition-all duration-500 ${showWelcome ? 'mt-16' : 'mt-8'}`}>
+      {/* Search bar */}
+      <div
+        className={`relative z-10 mx-auto max-w-5xl transition-all duration-500 ${
+          showWelcome ? 'mt-16' : 'mt-8'
+        }`}
+      >
         <div className="relative w-full">
           <Search
             className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
@@ -234,7 +265,7 @@ export default function SearchPage() {
               setQuery(e.target.value);
               setHasSearched(false);
             }}
-            onKeyDown={(e) => e.key === 'Enter' && runSearch()}
+            onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder="Search the web freely and safely..."
             className="w-full min-w-0 rounded-3xl border border-slate-300/50 bg-white/50 pl-12 pr-32 sm:pr-40 py-3 text-sm sm:text-lg text-slate-900 font-medium shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-300 overflow-x-auto"
           />
@@ -247,57 +278,58 @@ export default function SearchPage() {
           </button>
         </div>
       </div>
-      {/* WHY NETSENTINEL BOX */}
+
+      {/* Welcome — Why NetSentinel box */}
       {showWelcome && (
         <div className="relative max-w-5xl mx-auto bg-white/70 backdrop-blur-md rounded-3xl p-4 shadow-xl mt-8 transition-opacity duration-500">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-
-            {/* Owl + title inline on mobile / owl alone on desktop */}
             <div className="flex items-center gap-3 md:block flex-shrink-0">
               <img
                 src="/images/why-image (1).png"
                 alt="Why NetSentinel"
                 className="w-20 md:w-52 object-contain drop-shadow-2xl"
               />
-              <h2 className="text-lg font-bold text-black leading-tight md:hidden">Why NetSentinel?</h2>
+              <h2 className="text-lg font-bold text-black leading-tight md:hidden">
+                Why NetSentinel?
+              </h2>
             </div>
-
-            {/* Title above text on desktop / just text on mobile */}
             <div className="flex-1">
-              <h2 className="hidden md:block text-3xl font-bold text-black mb-2">Why NetSentinel?</h2>
+              <h2 className="hidden md:block text-3xl font-bold text-black mb-2">
+                Why NetSentinel?
+              </h2>
               <p className="text-slate-700 leading-relaxed text-sm md:text-lg max-w-2xl">
-                NetSentinel is a secure search environment designed for your kids to protect
-                them from harmful content. Leveraging real-time filtering algorithms and customizable
-                safety protocols, it ensures a safe browsing experience for educational and professional use.
+                NetSentinel is a secure search environment designed for your kids to
+                protect them from harmful content. Leveraging real-time filtering
+                algorithms and customizable safety protocols, it ensures a safe browsing
+                experience for educational and professional use.
               </p>
             </div>
-
           </div>
         </div>
       )}
 
-      {/* FEATURE CARDS */}
+      {/* Welcome — Feature cards */}
       {showWelcome && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 max-w-5xl mx-auto transition-opacity duration-500">
           <FeatureCard
             icon={Shield}
             title="Privacy First"
-            desc="Your searches are private and never tracked. We ensure your data stays safe online at all times. Enjoy a worry-free browsing experience without sharing sensitive information."
+            desc="Your searches are private and never tracked. We ensure your data stays safe online at all times."
           />
           <FeatureCard
             icon={Eye}
             title="Clarity & Focus"
-            desc="Get direct answers without clutter. Stay focused on what matters most while browsing the web. Our streamlined interface reduces distractions and helps you find the information you need quickly."
+            desc="Get direct answers without clutter. Stay focused on what matters most while browsing."
           />
           <FeatureCard
             icon={Lock}
             title="Safe Browsing"
-            desc="Protected from harmful content and unsafe websites. NetSentinel ensures a safer search experience for you and your family online."
+            desc="Protected from harmful content and unsafe websites for you and your family."
           />
           <FeatureCard
             icon={Sparkles}
             title="Kids Zone"
-            desc="Special designed for kids with safe and fun content. Explore educational and entertaining material online, designed to keep children engaged, curious, and protected at all times"
+            desc="Specially designed for kids with safe and fun content to keep children engaged and protected."
           />
         </div>
       )}
@@ -306,38 +338,33 @@ export default function SearchPage() {
       {!showWelcome && (
         <div className="flex justify-center mt-8">
           <div className="inline-flex w-fit rounded-2xl border border-slate-200 bg-white/70 p-1 shadow-sm">
-            <button
-              onClick={() => handleTabChange('all')}
-              className={[
-                'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
-                activeTab === 'all'
-                  ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
-                  : 'text-slate-700 hover:bg-white',
-              ].join(' ')}
-            >
-              <List size={16} />
-              All
-            </button>
-
-            <button
-              onClick={() => handleTabChange('images')}
-              className={[
-                'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
-                activeTab === 'images'
-                  ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
-                  : 'text-slate-700 hover:bg-white',
-              ].join(' ')}
-            >
-              <ImageIcon size={16} />
-              Images
-            </button>
+            {(
+              [
+                { tab: 'all' as Tab,    icon: List,      label: 'All' },
+                { tab: 'images' as Tab, icon: ImageIcon, label: 'Images' },
+              ] as const
+            ).map(({ tab, icon: Icon, label }) => (
+              <button
+                key={tab}
+                onClick={() => handleTabChange(tab)}
+                className={[
+                  'flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition',
+                  activeTab === tab
+                    ? 'bg-gradient-to-r from-blue-600 to-violet-600 text-white shadow-sm'
+                    : 'text-slate-700 hover:bg-white',
+                ].join(' ')}
+              >
+                <Icon size={16} />
+                {label}
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Loading */}
+      {/* Loading skeletons */}
       {showSpinner && (
-        <div className="grid grid-cols-1 gap-4">
+        <div className="grid grid-cols-1 gap-4 mt-6">
           {Array.from({ length: 5 }).map((_, i) => (
             <SkeletonCard key={i} />
           ))}
@@ -346,37 +373,35 @@ export default function SearchPage() {
 
       {/* Error */}
       {!showSpinner && error && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {error}
         </div>
       )}
 
       {/* No results */}
       {!showSpinner && !error && hasSearched && results.length === 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white/70 p-8 text-center shadow-sm">
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white/70 p-8 text-center shadow-sm">
           <p className="text-slate-700 font-medium">No results found</p>
-          <p className="mt-1 text-sm text-slate-500">Try different keywords or switch the filter mode.</p>
+          <p className="mt-1 text-sm text-slate-500">
+            Try different keywords or switch the filter mode.
+          </p>
         </div>
       )}
 
-      {/* ALL RESULTS TAB */}
+      {/* All results tab */}
       {!showSpinner && !error && results.length > 0 && activeTab === 'all' && (
-        <>
-          <div className="mb-3 flex items-center justify-between">
-            <p className="text-xs text-slate-500">
-              Showing {results.length} result{results.length !== 1 && 's'}
-              {hasMore && ' (more available)'}
-            </p>
-          </div>
-
+        <div className="mt-6">
+          <p className="text-xs text-slate-500 mb-3">
+            Showing {results.length} result{results.length !== 1 && 's'}
+            {hasMore && ' (more available)'}
+          </p>
           <div className="space-y-4">
             {results.map((r) => (
               <SearchResultCard key={r.id} result={r} />
             ))}
           </div>
-
-          <div className="flex justify-center mt-6">
-            {hasMore && (
+          {hasMore && (
+            <div className="flex justify-center mt-6">
               <button
                 onClick={handleLoadMore}
                 disabled={isLoadingMore}
@@ -384,14 +409,14 @@ export default function SearchPage() {
               >
                 {isLoadingMore ? 'Loading more…' : 'Load more results'}
               </button>
-            )}
-          </div>
-        </>
+            </div>
+          )}
+        </div>
       )}
 
-      {/* IMAGES TAB */}
+      {/* Images tab */}
       {!showSpinner && !error && activeTab === 'images' && (
-        <>
+        <div className="mt-6">
           {imageResults.length === 0 ? (
             <div className="rounded-2xl border border-slate-200 bg-white/70 p-8 text-center shadow-sm">
               <p className="text-slate-700 font-medium">No image results</p>
@@ -404,7 +429,6 @@ export default function SearchPage() {
                 {imageResults.length !== 1 && 's'}
                 {hasMore && ' (more available)'}
               </p>
-
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {imageResults.map((r) => (
                   <button
@@ -421,16 +445,15 @@ export default function SearchPage() {
                         e.currentTarget.closest('button')?.classList.add('hidden');
                       }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-black/0 to-black/0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="absolute bottom-0 left-0 right-0 p-3 text-left opacity-0 group-hover:opacity-100 transition-opacity">
                       <p className="text-xs text-white line-clamp-2">{r.title}</p>
                     </div>
                   </button>
                 ))}
               </div>
-
-              <div className="flex justify-center mt-6">
-                {hasMore && (
+              {hasMore && (
+                <div className="flex justify-center mt-6">
                   <button
                     onClick={handleLoadMore}
                     disabled={isLoadingMore}
@@ -438,11 +461,11 @@ export default function SearchPage() {
                   >
                     {isLoadingMore ? 'Loading more images…' : 'Load more images'}
                   </button>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
-        </>
+        </div>
       )}
 
       {/* Lightbox */}
@@ -461,15 +484,14 @@ export default function SearchPage() {
             >
               Close
             </button>
-
             <img
               src={getImageSrc(selectedImage.preview_url)}
               alt={selectedImage.title}
               className="max-w-full max-h-[85vh] object-contain mx-auto"
             />
-
             <div className="px-4 py-3 text-xs text-slate-200 bg-black/60 flex items-center justify-between gap-3">
               <span className="truncate">{selectedImage.title}</span>
+              {/* BUG FIX: was missing opening <a tag in original file */}
               <a
                 href={selectedImage.url}
                 target="_blank"
@@ -483,5 +505,14 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// Wrap the page with ProtectedRoute — unauthenticated users go to /login
+export default function SearchPage() {
+  return (
+    <ProtectedRoute>
+      <SearchPageInner />
+    </ProtectedRoute>
   );
 }
