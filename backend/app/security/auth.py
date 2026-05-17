@@ -9,6 +9,8 @@ import os
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
+import hashlib
+import base64
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -40,18 +42,25 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 # ─────────────────────────────────────────────────────────────
 # Password utilities
 # ─────────────────────────────────────────────────────────────
+def _prepare_password(plain_password: str) -> str:
+    """
+    bcrypt has a hard 72-byte limit. SHA-256 + base64 encoding
+    keeps any password within 44 bytes while preserving full entropy.
+    """
+    digest = hashlib.sha256(plain_password.encode("utf-8")).digest()
+    return base64.b64encode(digest).decode("utf-8")
 
 def hash_password(plain_password: str) -> str:
     """
     Hash a plaintext password using bcrypt.
     bcrypt is resistant to brute-force due to its cost factor.
     """
-    return pwd_context.hash(plain_password)
+    return pwd_context.hash(_prepare_password(plain_password))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a plaintext password against the stored bcrypt hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(_prepare_password(plain_password), hashed_password)
 
 
 def validate_password_strength(password: str) -> tuple[bool, str]:
