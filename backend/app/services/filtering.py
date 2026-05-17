@@ -235,17 +235,22 @@ def filter_results(
             continue
 
         # ── 3. Keyword scan ───────────────────────────────────
-        # Check title, snippet, AND the URL path (catches explicit URLs
-        # with clean titles like "Watch Free Videos")
         scan_text = f"{title} {snippet} {url}"
-        if text_contains_banned(scan_text, pattern):
-            blocked_count += 1
+        is_explicit = text_contains_banned(scan_text, pattern)
+
+        if is_explicit:
+            has_image = bool(r.get("preview_url"))
+            if has_image:
+                # Show image results but mark them for blurring
+                r_copy = r.copy()
+                r_copy["blur_image"] = True
+                filtered.append(r_copy)
+            else:
+                # Block explicit text/link results entirely
+                blocked_count += 1
             continue
 
         filtered.append(r)
-
-    return filtered, blocked_count
-
 
 # ── Result type classification ─────────────────────────────────
 
