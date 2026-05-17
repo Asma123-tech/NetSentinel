@@ -22,7 +22,8 @@ cd /home/$USER/NetSentinel
 # ── Step 1: Pull latest code from GitHub ─────────────────────
 echo ""
 echo "[1/4] Pulling latest code..."
-GIT_TERMINAL_PROMPT=0 git pull origin main
+GIT_TERMINAL_PROMPT=0 git fetch origin
+git reset --hard origin/main
 
 # ── Step 2: Rebuild Docker images ────────────────────────────
 echo ""
