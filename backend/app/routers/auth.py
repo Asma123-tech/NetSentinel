@@ -73,8 +73,8 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
             detail="An account with this email or username already exists.",
         )
 
-    access_token  = create_access_token({"sub": user.username})
-    refresh_token = create_refresh_token({"sub": user.username})
+    access_token  = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
 
     return Token(access_token=access_token, refresh_token=refresh_token)
 
@@ -108,8 +108,8 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token  = create_access_token({"sub": user.username})
-    refresh_token = create_refresh_token({"sub": user.username})
+    access_token  = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
 
     return Token(access_token=access_token, refresh_token=refresh_token)
 
