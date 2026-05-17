@@ -19,6 +19,11 @@ echo "============================================"
 # ── Navigate to project directory ───────────────────────────
 cd /home/$USER/NetSentinel
 
+# ── Fix Docker file ownership ─────────────────────────────────
+echo ""
+echo "Fixing file ownership..."
+sudo chown -R $USER:$USER /home/$USER/NetSentinel
+
 # ── Step 1: Pull latest code from GitHub ─────────────────────
 echo ""
 echo "[1/4] Pulling latest code..."
