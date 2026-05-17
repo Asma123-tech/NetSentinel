@@ -34,7 +34,6 @@ class ResultType(str, enum.Enum):
     image = "image"
     video = "video"
 class User(Base):
-   class User(Base):
     __tablename__ = "users"
 
     id              = Column(Integer, primary_key=True, index=True)
