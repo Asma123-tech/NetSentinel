@@ -156,3 +156,6 @@ class SecurityEventResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+    # Backwards-compatibility aliases — routers use these original names
+SettingsOut    = SettingsResponse
+SearchResultOut = SearchResultResponse
