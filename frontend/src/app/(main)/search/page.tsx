@@ -215,7 +215,7 @@ function SearchPageInner() {
       {/* Full background image */}
       <div
         className="fixed inset-0 -z-[5] bg-cover bg-center pointer-events-none blur-md scale-105"
-        style={{ backgroundImage: "url('/images/logo 2.jpge')" }}
+        style={{ backgroundImage: "url('/images/logo 2.jpeg')" }}
       />
 
       {/* Floating images — welcome screen only */}
