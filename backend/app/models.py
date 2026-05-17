@@ -59,6 +59,9 @@ class SearchQuery(Base):
     user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
     query      = Column(String(500), nullable=False)
     filter_mode= Column(String(20),  nullable=True)
+    total_results   = Column(Integer, default=0)
+    safe_results    = Column(Integer, default=0)
+    blocked_results = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user    = relationship("User",         back_populates="search_queries")
