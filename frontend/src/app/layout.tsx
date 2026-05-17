@@ -1,23 +1,27 @@
-// src/app/layout.tsx
-import './globals.css';
 import type { Metadata } from 'next';
+import './globals.css';
 import Providers from '@/components/Providers';
-import AppShell from '@/components/AppShell';
 
 export const metadata: Metadata = {
-  title: 'NetSentinel',
-  description: 'Safe Search Engine',
+  title: 'NetSentinel — Safe Search Engine',
+  description: 'A secure search environment for safe browsing.',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+/**
+ * Root layout — wraps the whole app with Providers only.
+ * AppShell (Header + Sidebar) is rendered by the (main) route group layout,
+ * so auth pages (login, signup) get a clean full-screen layout automatically.
+ */
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="min-h-screen bg-gray-50" suppressHydrationWarning>
-        <Providers>
-          <AppShell>{children}</AppShell>
-        </Providers>
+      <body>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
 }
-

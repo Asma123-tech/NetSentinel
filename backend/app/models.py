@@ -1,119 +1,140 @@
-# app/models.py  — UPDATED (security modules added)
-# New models: User (Module 4), SecurityEvent (Module 6)
+"""
+Database models for NetSentinel.
 
-from datetime import datetime
+CHANGE LOG:
+  - User: added `full_name` column (nullable String, non-breaking for existing rows).
+    Run the migration SQL after deploying this file:
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(100);
+"""
 import enum
-
+from datetime import datetime
 from sqlalchemy import (
-    Column, Integer, String, DateTime,
-    Boolean, Enum, ForeignKey, Text,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
 )
 from sqlalchemy.orm import relationship
+from app.database import Base
 
-from .database import Base
 
-
-# ─── Existing enums (unchanged) ──────────────────────────────
+# ── User ───────────────────────────────────────────────────────
 
 class FilterMode(str, enum.Enum):
     strict   = "strict"
     moderate = "moderate"
     relaxed  = "relaxed"
 
-
 class ResultType(str, enum.Enum):
     text  = "text"
     image = "image"
     video = "video"
+class User(Base):
+    __tablename__ = "users"
+
+    id              = Column(Integer, primary_key=True, index=True)
+    username        = Column(String(50),  unique=True, nullable=False, index=True)
+    email           = Column(String(255), unique=True, nullable=False, index=True)
+    full_name       = Column(String(100), nullable=True)          # ← NEW (nullable)
+    hashed_password = Column(String(255), nullable=False)
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships — keep exactly as they were in your original file
+    search_queries  = relationship("SearchQuery",   back_populates="user", cascade="all, delete-orphan")
+    settings        = relationship("UserSettings",  back_populates="user", uselist=False, cascade="all, delete-orphan")
+    security_events = relationship("SecurityEvent", back_populates="user", cascade="all, delete-orphan")
 
 
-# ─── Existing models (unchanged) ─────────────────────────────
+# ── SearchQuery ────────────────────────────────────────────────
 
 class SearchQuery(Base):
     __tablename__ = "search_queries"
 
-    id             = Column(Integer, primary_key=True, index=True)
-    query          = Column(String(512), nullable=False)
-    filter_mode    = Column(Enum(FilterMode), nullable=False)
-    created_at     = Column(DateTime, default=datetime.utcnow, nullable=False)
-    total_results  = Column(Integer, default=0)
-    safe_results   = Column(Integer, default=0)
-    blocked_results = Column(Integer, default=0)
+    id         = Column(Integer, primary_key=True, index=True)
+    user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    query      = Column(String(500), nullable=False)
+    filter_mode= Column(String(20),  nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    results = relationship(
-        "SearchResult",
-        back_populates="search_query",
-        cascade="all, delete-orphan",
-    )
+    user    = relationship("User",         back_populates="search_queries")
+    results = relationship("SearchResult", back_populates="query", cascade="all, delete-orphan")
 
+
+# ── SearchResult ───────────────────────────────────────────────
 
 class SearchResult(Base):
     __tablename__ = "search_results"
 
-    id             = Column(Integer, primary_key=True, index=True)
-    query_id       = Column(Integer, ForeignKey("search_queries.id", ondelete="CASCADE"))
-    title          = Column(String(512), nullable=False)
-    url            = Column(String(1024), nullable=False)
-    snippet        = Column(Text, nullable=False)
-    type           = Column(Enum(ResultType), default=ResultType.text, nullable=False)
-    is_blocked     = Column(Boolean, default=False)
-    blocked_reason = Column(String(256), nullable=True)
-    created_at     = Column(DateTime, default=datetime.utcnow, nullable=False)
+    id          = Column(Integer, primary_key=True, index=True)
+    query_id    = Column(Integer, ForeignKey("search_queries.id", ondelete="CASCADE"), nullable=False)
+    title       = Column(String(500), nullable=False)
+    url         = Column(Text,        nullable=False)
+    snippet     = Column(Text,        nullable=True)
+    result_type = Column(String(20),  nullable=True)
+    preview_url = Column(Text,        nullable=True)
+    is_blocked  = Column(Boolean,     default=False)
+    created_at  = Column(DateTime(timezone=True), server_default=func.now())
 
-    search_query = relationship("SearchQuery", back_populates="results")
+    query = relationship("SearchQuery", back_populates="results")
 
 
+# ── GlobalSettings (kept for backwards compatibility) ──────────
+
+# In models.py — inside the GlobalSettings class, add this property:
 class GlobalSettings(Base):
     __tablename__ = "global_settings"
 
     id                = Column(Integer, primary_key=True, index=True)
-    filter_mode       = Column(Enum(FilterMode), default=FilterMode.relaxed, nullable=False)
-    parental_controls = Column(Boolean, default=True)
-    notifications     = Column(Boolean, default=True)
-    save_search_history = Column(Boolean, default=True)
-    blocked_keywords  = Column(Text, default="")
-    allowed_domains   = Column(Text, default="")
+    filter_mode       = Column(String(20), default="strict")
+    parental_controls = Column(Boolean,    default=True)
+    notifications     = Column(Boolean,    default=True)
+    save_history      = Column(Boolean,    default=True)   # ← actual column name
+    blocked_keywords  = Column(Text,       default="")
+    allowed_domains   = Column(Text,       default="")
+    updated_at        = Column(DateTime(timezone=True), onupdate=func.now())
+
+    @property
+    def save_search_history(self) -> bool:          # ← bridge property
+        return self.save_history
+
+    @save_search_history.setter
+    def save_search_history(self, value: bool):
+        self.save_history = value
 
 
-# ─── MODULE 4: User model ─────────────────────────────────────
+# ── UserSettings (per-user settings) ──────────────────────────
 
-class User(Base):
-    """
-    Stores registered user accounts.
-    Password is NEVER stored in plaintext — only bcrypt hash.
-    """
-    __tablename__ = "users"
+class UserSettings(Base):
+    __tablename__ = "user_settings"
 
-    id              = Column(Integer, primary_key=True, index=True)
-    username        = Column(String(64), unique=True, nullable=False, index=True)
-    email           = Column(String(256), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(256), nullable=False)   # bcrypt hash
-    is_active       = Column(Boolean, default=True)
-    created_at      = Column(DateTime, default=datetime.utcnow, nullable=False)
-    last_login      = Column(DateTime, nullable=True)
+    id                  = Column(Integer, primary_key=True, index=True)
+    user_id             = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    filter_mode         = Column(String(20), default="strict")
+    parental_controls   = Column(Boolean,    default=True)
+    notifications       = Column(Boolean,    default=True)
+    save_search_history = Column(Boolean,    default=True)
+    blocked_keywords    = Column(Text,       default="")
+    allowed_domains     = Column(Text,       default="")
+    updated_at          = Column(DateTime(timezone=True), onupdate=func.now())
+
+    user = relationship("User", back_populates="settings")
 
 
-# ─── MODULE 6: SecurityEvent model ───────────────────────────
+# ── SecurityEvent ──────────────────────────────────────────────
 
 class SecurityEvent(Base):
-    """
-    Audit log table — every security-relevant event is written here.
-    Powers the intrusion detection dashboard.
-
-    Severity levels:
-        INFO     — normal events (login, search)
-        WARNING  — suspicious but not confirmed attack
-        CRITICAL — confirmed attack attempt (SQLi, XSS, etc.)
-    """
     __tablename__ = "security_events"
 
     id         = Column(Integer, primary_key=True, index=True)
-    event_type = Column(String(64),  nullable=False, index=True)
-    severity   = Column(String(16),  nullable=False, index=True)  # INFO / WARNING / CRITICAL
-    ip_address = Column(String(64),  nullable=False, index=True)
     user_id    = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
-    path       = Column(String(512), nullable=False)
-    method     = Column(String(10),  nullable=False)
-    user_agent = Column(String(256), nullable=True)
-    details    = Column(Text, default="")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    event_type = Column(String(100), nullable=False)
+    severity   = Column(String(20),  nullable=False, default="INFO")
+    ip_address = Column(String(45),  nullable=True)
+    details    = Column(Text,        nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="security_events")

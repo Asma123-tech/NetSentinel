@@ -4,7 +4,8 @@ general:
   instance_name: "My SearxNG"
 
 search:
-  safe_search: 0
+  safe_search: 2
+  autocomplete: ""
   formats:
     - html
     - json

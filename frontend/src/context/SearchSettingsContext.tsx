@@ -17,7 +17,7 @@ export function SearchSettingsProvider({ children }: { children: React.ReactNode
   // OLD:
   // const [filterMode, setFilterModeState] = useState<FilterMode>('strict');
   // NEW:
-  const [filterMode, setFilterModeState] = useState<FilterMode>('relaxed');
+  const [filterMode, setFilterModeState] = useState<FilterMode>('strict');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

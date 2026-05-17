@@ -1,10 +1,29 @@
-// src/lib/api.ts
-'use client';
-
 import type { SearchResult } from '@/types';
+import { API_BASE_URL } from '@/lib/config';
+import { getStoredToken } from '@/lib/tokenstorage';
 
-const API_BASE_URL =
-  (process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000').replace(/\/+$/, '');
+export { API_BASE_URL };
+
+// ── Authenticated fetch ────────────────────────────────────────
+// Attaches the Bearer token from localStorage to every request.
+function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const token = getStoredToken();
+  const headers: HeadersInit = {
+    ...(init.headers || {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  return fetch(input, { ...init, headers });
+}
+
+async function handleJsonResponse(res: Response) {
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    throw new Error(`API error ${res.status}: ${text || res.statusText}`);
+  }
+  return res.json();
+}
+
+// ── Types ──────────────────────────────────────────────────────
 
 export type FilterMode = 'strict' | 'moderate' | 'relaxed';
 
@@ -32,26 +51,19 @@ export type ActivityItem = {
   blocked_results: number;
 };
 
-async function handleJsonResponse(res: Response) {
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`API error ${res.status}: ${text || res.statusText}`);
-  }
-  return res.json();
-}
-
-// --- SEARCH ---
 export type SearchApiResponse = {
   results: SearchResult[];
   has_more: boolean;
 };
 
+// ── Search ─────────────────────────────────────────────────────
+
 export async function performSearch(
   query: string,
   filterMode?: FilterMode,
-  limit = 30
+  limit = 30,
 ): Promise<SearchApiResponse> {
-  const res = await fetch(`${API_BASE_URL}/api/search`, {
+  const res = await authFetch(`${API_BASE_URL}/api/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, limit, filter_mode: filterMode }),
@@ -68,51 +80,59 @@ export async function performSearch(
       snippet: item.snippet,
       type: item.type,
       timestamp: item.timestamp,
-      preview_url: item.preview_url ? `${API_BASE_URL}${item.preview_url}` : undefined,
+      preview_url: item.preview_url
+        ? `${API_BASE_URL}${item.preview_url}`
+        : undefined,
     })),
   };
 }
 
-// --- SETTINGS ---
+// ── Settings ───────────────────────────────────────────────────
 
 export async function fetchSettings(): Promise<BackendSettings> {
-  const res = await fetch(`${API_BASE_URL}/api/settings`);
+  const res = await authFetch(`${API_BASE_URL}/api/settings`);
   return handleJsonResponse(res);
 }
 
-export async function updateSettings(payload: Partial<BackendSettings>): Promise<BackendSettings> {
-  const res = await fetch(`${API_BASE_URL}/api/settings`, {
+export async function updateSettings(
+  payload: Partial<BackendSettings>,
+): Promise<BackendSettings> {
+  const res = await authFetch(`${API_BASE_URL}/api/settings`, {
     method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
   return handleJsonResponse(res);
 }
 
-// --- STATS ---
+// ── Stats ──────────────────────────────────────────────────────
 
 export async function fetchOverviewStats(): Promise<OverviewStats> {
-  const res = await fetch(`${API_BASE_URL}/api/stats/overview`);
+  const res = await authFetch(`${API_BASE_URL}/api/stats/overview`);
   return handleJsonResponse(res);
 }
 
 export async function fetchRecentActivity(limit = 10): Promise<ActivityItem[]> {
-  const res = await fetch(`${API_BASE_URL}/api/stats/recent?limit=${encodeURIComponent(String(limit))}`);
+  const res = await authFetch(
+    `${API_BASE_URL}/api/stats/recent?limit=${encodeURIComponent(String(limit))}`,
+  );
   return handleJsonResponse(res);
 }
 
-// --- HISTORY (NEW) ---
+// ── History ────────────────────────────────────────────────────
 
-export async function clearSearchHistory(): Promise<{ ok: boolean; deleted_queries?: number }> {
-  const res = await fetch(`${API_BASE_URL}/api/history`, { method: 'DELETE' });
+export async function clearSearchHistory(): Promise<{
+  ok: boolean;
+  deleted_queries?: number;
+}> {
+  const res = await authFetch(`${API_BASE_URL}/api/history`, {
+    method: 'DELETE',
+  });
   return handleJsonResponse(res);
 }
-
 
 export async function exportSearchHistoryCsv(): Promise<Blob> {
-  const res = await fetch(`${API_BASE_URL}/api/history/export.csv`, { method: 'GET' });
+  const res = await authFetch(`${API_BASE_URL}/api/history/export.csv`);
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Export failed ${res.status}: ${text || res.statusText}`);

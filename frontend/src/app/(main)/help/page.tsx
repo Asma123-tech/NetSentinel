@@ -34,7 +34,7 @@ export default function HelpPage() {
     <div className="relative min-h-screen">
       {/* FULL BACKGROUND IMAGE */}
       <div className="fixed inset-0 -z-[5] bg-cover bg-center pointer-events-none blur-md scale-105"
-        style={{ backgroundImage: "url('/images/1.jpg')" }}>
+        style={{ backgroundImage: "url('/images/logo 2.jpeg')" }}>
       </div>
 
       {/* OPTIONAL OVERLAY FOR BETTER READABILITY */}
