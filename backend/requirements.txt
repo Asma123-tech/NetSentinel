@@ -23,5 +23,6 @@ Pillow
 
 # ── MODULE 4: Authentication & Session Management ─────────────
 python-jose[cryptography]   # JWT creation and validation
-passlib[bcrypt==4.0.1]             # bcrypt password hashing
+passlib[bcrypt]             # bcrypt password hashing
+bcrypt==4.0.1
 email-validator             # email field validation in Pydantic
