@@ -6,7 +6,7 @@ CHANGE LOG:
     Run the migration SQL after deploying this file:
       ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name VARCHAR(100);
 """
-
+import enum
 from datetime import datetime
 from sqlalchemy import (
     Boolean,
@@ -24,6 +24,15 @@ from app.database import Base
 
 # ── User ───────────────────────────────────────────────────────
 
+class FilterMode(str, enum.Enum):
+    strict   = "strict"
+    moderate = "moderate"
+    relaxed  = "relaxed"
+
+class ResultType(str, enum.Enum):
+    text  = "text"
+    image = "image"
+    video = "video"
 class User(Base):
     __tablename__ = "users"
 
