@@ -89,7 +89,7 @@ def perform_search(
 
     try:
         raw_results = provider.search(sanitized_query, filter_mode=effective_mode, limit=payload.limit)
-        has_more = len(filtered) >= payload.limit
+
     except requests.HTTPError:
         logger.exception("Upstream search provider HTTP error")
         return schemas.SearchResponse(results=[], has_more=False, total=0)
@@ -105,6 +105,8 @@ def perform_search(
         blocked_keywords=settings.blocked_keywords or "",
         allowed_domains=settings.allowed_domains or "",
     )
+
+    has_more = len(filtered) >= payload.limit
 
     total = len(raw_results)
     safe  = len(filtered)
