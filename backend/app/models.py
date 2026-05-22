@@ -78,7 +78,7 @@ class SearchResult(Base):
     title       = Column(String(500), nullable=False)
     url         = Column(Text,        nullable=False)
     snippet     = Column(Text,        nullable=True)
-    result_type = Column(String(20),  nullable=True)
+    type        = Column("type", String(20),  nullable=True)
     preview_url = Column(Text,        nullable=True)
     is_blocked  = Column(Boolean,     default=False)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())
