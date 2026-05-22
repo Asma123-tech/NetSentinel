@@ -88,6 +88,7 @@ class SearxNGProvider(BaseProvider):
         query: str,
         filter_mode: FilterMode,
         limit: int = 10,
+        page: int = 1,
     ) -> List[Dict]:
         # SearxNG safesearch: 0=off, 1=moderate, 2=strict
         safesearch_map = {
@@ -98,7 +99,7 @@ class SearxNGProvider(BaseProvider):
         safesearch = safesearch_map.get(filter_mode, 2)
 
         # Fetch a multiple of the requested limit so filtering has headroom
-        fetch_limit = limit * FETCH_MULTIPLIER
+        fetch_limit = limit
 
         params = {
             "q":          query,
@@ -106,7 +107,7 @@ class SearxNGProvider(BaseProvider):
             "categories": self._safe_categories(filter_mode),
             "language":   "en",
             "safesearch": safesearch,
-            "pageno":     1,
+            "pageno":     page,
         }
 
         url     = f"{self.base_url}/search"
