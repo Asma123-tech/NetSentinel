@@ -71,10 +71,10 @@ def perform_search(
         has_more = len(raw_results) == payload.limit
     except requests.HTTPError:
         logger.exception("Upstream search provider HTTP error")
-        return schemas.SearchResponse(results=[], has_more=False)
+        return schemas.SearchResponse(results=[], has_more=False, total=0)
     except requests.RequestException:
         logger.exception("Failed to contact upstream search provider")
-        return schemas.SearchResponse(results=[], has_more=False)
+        return schemas.SearchResponse(results=[], has_more=False, total=0)
     except Exception:
         raise
 
@@ -118,7 +118,7 @@ def perform_search(
 ),
                 )
             )
-        return schemas.SearchResponse(results=out, has_more=has_more)
+        return schemas.SearchResponse(results=out, has_more=has_more, total=len(out))
 
     # ── CASE 2: Save query + results ──────────────────────────
     q = models.SearchQuery(
@@ -166,4 +166,4 @@ def perform_search(
 ),
             )
         )
-    return schemas.SearchResponse(results=out, has_more=has_more)
+    return schemas.SearchResponse(results=out, has_more=has_more, total=len(out))
