@@ -62,11 +62,12 @@ export async function performSearch(
   query: string,
   filterMode?: FilterMode,
   limit = 30,
+  page = 1,              // ← add page param
 ): Promise<SearchApiResponse> {
   const res = await authFetch(`${API_BASE_URL}/api/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, limit, filter_mode: filterMode }),
+    body: JSON.stringify({ query, limit, filter_mode: filterMode, page }),  // ← add page
   });
 
   const data = await handleJsonResponse(res);

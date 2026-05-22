@@ -123,8 +123,7 @@ function SearchPageInner() {
     ) => {
       if (!searchQuery.trim()) return;
 
-      const size  = tab === 'images' ? PAGE_SIZE_IMAGES : PAGE_SIZE_ALL;
-      const limit = newPage * size;
+      const size = tab === 'images' ? PAGE_SIZE_IMAGES : PAGE_SIZE_ALL;
 
       try {
         if (newPage === 1) {
@@ -134,13 +133,25 @@ function SearchPageInner() {
           setIsLoadingMore(true);
         }
 
-        const { results: data, has_more } = await performSearch(searchQuery, mode, limit);
-        setResults(data);
+        // Pass page number — backend fetches the correct SearxNG page
+        const { results: data, has_more } = await performSearch(
+          searchQuery,
+          mode,
+          size,       // ← fixed size per page, not cumulative
+          newPage,    // ← actual page number
+        );
+
+        if (newPage === 1) {
+          setResults(data);           // Replace results on new search
+        } else {
+          setResults(prev => [...prev, ...data]);  // Append on load more
+        }
+
         setPage(newPage);
         setHasMore(has_more);
       } catch (err: any) {
         setError(err?.message || 'Search failed');
-        setResults([]);
+        if (newPage === 1) setResults([]);
         setHasMore(false);
       } finally {
         setIsSearching(false);
