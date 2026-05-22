@@ -21,13 +21,13 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 // ── Theme ──────────────────────────────────────────────────────
 
 const THEME = {
-  primary : 'from-pink-500 to-purple-600',
-  icon    : 'from-pink-500 to-purple-600',
-  heading : 'bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text',
+  primary: 'from-pink-500 to-purple-600',
+  icon: 'from-pink-500 to-purple-600',
+  heading: 'bg-gradient-to-r from-pink-500 to-purple-600 text-transparent bg-clip-text',
 };
 
 type Tab = 'all' | 'images';
-const PAGE_SIZE_ALL    = 20;
+const PAGE_SIZE_ALL = 20;
 const PAGE_SIZE_IMAGES = 80;
 
 // ── Sub-components ─────────────────────────────────────────────
@@ -37,8 +37,8 @@ function ModePill({ mode }: { mode: FilterMode }) {
     mode === 'strict'
       ? 'border-rose-200 bg-rose-50 text-rose-700'
       : mode === 'moderate'
-      ? 'border-amber-200 bg-amber-50 text-amber-700'
-      : 'border-emerald-200 bg-emerald-50 text-emerald-700';
+        ? 'border-amber-200 bg-amber-50 text-amber-700'
+        : 'border-emerald-200 bg-emerald-50 text-emerald-700';
 
   const label =
     mode === 'strict' ? 'Strict' : mode === 'moderate' ? 'Moderate' : 'Relaxed';
@@ -92,33 +92,33 @@ function FeatureCard({
 // ── Page ───────────────────────────────────────────────────────
 
 function SearchPageInner() {
-  const router       = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   // Initialise query from URL so refresh restores the last search
-  const [query,         setQuery]         = useState(() => searchParams.get('q') ?? '');
-  const [isSearching,   setIsSearching]   = useState(false);
+  const [query, setQuery] = useState(() => searchParams.get('q') ?? '');
+  const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasSearched,   setHasSearched]   = useState(false);
-  const [results,       setResults]       = useState<SearchResult[]>([]);
-  const [error,         setError]         = useState<string | null>(null);
-  const [activeTab,     setActiveTab]     = useState<Tab>('all');
+  const [hasSearched, setHasSearched] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<Tab>('all');
   const [selectedImage, setSelectedImage] = useState<SearchResult | null>(null);
-  const [page,          setPage]          = useState(1);
-  const [hasMore,       setHasMore]       = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
 
   const { filterMode, setFilterMode } = useSearchSettings();
 
-  const showWelcome  = results.length === 0 && !isSearching && !query;
+  const showWelcome = results.length === 0 && !isSearching && !query;
   const imageResults = useMemo(() => results.filter((r) => r.preview_url), [results]);
-  const showSpinner  = isSearching && !isLoadingMore;
+  const showSpinner = isSearching && !isLoadingMore;
 
   // ── Core search ──────────────────────────────────────────────
   const runSearch = useCallback(
     async (
-      newPage: number   = 1,
-      tab: Tab          = activeTab,
-      mode: FilterMode  = filterMode,
+      newPage: number = 1,
+      tab: Tab = activeTab,
+      mode: FilterMode = filterMode,
       searchQuery: string = query,
     ) => {
       if (!searchQuery.trim()) return;
@@ -142,9 +142,13 @@ function SearchPageInner() {
         );
 
         if (newPage === 1) {
-          setResults(data);           // Replace results on new search
+          setResults(data);
         } else {
-          setResults(prev => [...prev, ...data]);  // Append on load more
+          setResults(prev => {
+            const existingUrls = new Set(prev.map(r => r.url));
+            const uniqueNew = data.filter(r => !existingUrls.has(r.url));
+            return [...prev, ...uniqueNew];
+          });
         }
 
         setPage(newPage);
@@ -249,9 +253,8 @@ function SearchPageInner() {
 
       {/* Heading */}
       <div
-        className={`relative z-20 text-center transition-all duration-500 ${
-          showWelcome ? '-mt-4' : '-mt-12'
-        }`}
+        className={`relative z-20 text-center transition-all duration-500 ${showWelcome ? '-mt-4' : '-mt-12'
+          }`}
       >
         <h1 className="text-3xl sm:text-5xl font-extrabold text-black drop-shadow-[0_2px_8px_rgba(255,255,255,0.6)]">
           NetSentinel
@@ -261,9 +264,8 @@ function SearchPageInner() {
 
       {/* Search bar */}
       <div
-        className={`relative z-10 mx-auto max-w-5xl transition-all duration-500 ${
-          showWelcome ? 'mt-16' : 'mt-8'
-        }`}
+        className={`relative z-10 mx-auto max-w-5xl transition-all duration-500 ${showWelcome ? 'mt-16' : 'mt-8'
+          }`}
       >
         <div className="relative w-full">
           <Search
@@ -351,7 +353,7 @@ function SearchPageInner() {
           <div className="inline-flex w-fit rounded-2xl border border-slate-200 bg-white/70 p-1 shadow-sm">
             {(
               [
-                { tab: 'all' as Tab,    icon: List,      label: 'All' },
+                { tab: 'all' as Tab, icon: List, label: 'All' },
                 { tab: 'images' as Tab, icon: ImageIcon, label: 'Images' },
               ] as const
             ).map(({ tab, icon: Icon, label }) => (
