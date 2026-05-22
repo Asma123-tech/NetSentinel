@@ -55,14 +55,14 @@ class User(Base):
 class SearchQuery(Base):
     __tablename__ = "search_queries"
 
-    id         = Column(Integer, primary_key=True, index=True)
-    user_id    = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
-    query      = Column(String(500), nullable=False)
-    filter_mode= Column(String(20),  nullable=True)
-    total_results   = Column(Integer, default=0)
-    safe_results    = Column(Integer, default=0)
-    blocked_results = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id              = Column(Integer, primary_key=True, index=True)
+    user_id         = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)
+    query           = Column(String(500), nullable=False)
+    filter_mode     = Column(String(20),  nullable=True)
+    total_results   = Column(Integer, default=0)     # ← add
+    safe_results    = Column(Integer, default=0)     # ← add
+    blocked_results = Column(Integer, default=0)     # ← add
+    created_at      = Column(DateTime(timezone=True), server_default=func.now())
 
     user    = relationship("User",         back_populates="search_queries")
     results = relationship("SearchResult", back_populates="query", cascade="all, delete-orphan")
@@ -78,7 +78,7 @@ class SearchResult(Base):
     title       = Column(String(500), nullable=False)
     url         = Column(Text,        nullable=False)
     snippet     = Column(Text,        nullable=True)
-    type = Column(String(20),  nullable=True)
+    result_type = Column(String(20),  nullable=True)
     preview_url = Column(Text,        nullable=True)
     is_blocked  = Column(Boolean,     default=False)
     created_at  = Column(DateTime(timezone=True), server_default=func.now())

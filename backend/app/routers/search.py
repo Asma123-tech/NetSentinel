@@ -25,13 +25,6 @@ from ..models import ResultType
 from ..security.input_validator import validate_search_query, sanitize_input  # Module 2
 from ..security.rate_limiter import search_rate_limit                          # Module 3
 from ..security.audit_logger import log_security_event, EventType             # Module 6
-from fastapi.security import OAuth2PasswordBearer
-from ..security.auth import decode_token
-
-oauth2_optional = OAuth2PasswordBearer(
-    tokenUrl="/api/auth/login",
-    auto_error=False,   # don't fail if no token
-)
 
 router = APIRouter(prefix="/search", tags=["search"])
 logging.basicConfig(level=logging.INFO)
@@ -50,7 +43,6 @@ def perform_search(
     request: Request,                           # needed for logging + rate limiting
     db: Session = Depends(get_db),
     _rl=Depends(search_rate_limit),             # Module 3: rate limit check
-    token: str = Depends(oauth2_optional),
 ):
     # ── Module 2: Sanitize input ──────────────────────────────
     sanitized_query = sanitize_input(payload.query)
@@ -70,32 +62,19 @@ def perform_search(
     if not sanitized_query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
 
-    # Resolve logged-in user (optional — search works without auth too)
-    current_user = None
-    if token:
-        try:
-            jwt_payload = decode_token(token)
-            if jwt_payload and jwt_payload.get("type") == "access":
-                uid = int(jwt_payload.get("sub"))
-                current_user = db.query(models.User).filter(
-                    models.User.id == uid
-                ).first()
-        except Exception:
-            pass
-
     provider = get_provider()
     settings = get_or_create_global_settings(db)
     effective_mode = payload.filter_mode or settings.filter_mode
 
     try:
         raw_results = provider.search(sanitized_query, filter_mode=effective_mode, limit=payload.limit)
-
+        has_more = len(raw_results) == payload.limit
     except requests.HTTPError:
         logger.exception("Upstream search provider HTTP error")
-        return schemas.SearchResponse(results=[], has_more=False, total=0)
+        return schemas.SearchResponse(results=[], has_more=False)
     except requests.RequestException:
         logger.exception("Failed to contact upstream search provider")
-        return schemas.SearchResponse(results=[], has_more=False, total=0)
+        return schemas.SearchResponse(results=[], has_more=False)
     except Exception:
         raise
 
@@ -105,8 +84,6 @@ def perform_search(
         blocked_keywords=settings.blocked_keywords or "",
         allowed_domains=settings.allowed_domains or "",
     )
-
-    has_more = len(filtered) >= payload.limit
 
     total = len(raw_results)
     safe  = len(filtered)
@@ -132,20 +109,19 @@ def perform_search(
                     title=r["title"],
                     url=r["url"],
                     snippet=r["snippet"],
-                    type=infer_result_type(r).value,
+                    type=infer_result_type(r),
                     timestamp=now,
                     preview_url=(
-                      r.get("preview_url") + "&blur=true"
-                      if r.get("preview_url") and r.get("blur_image")
-                      else r.get("preview_url")
+                       r.get("preview_url") + "&blur=true"
+                       if r.get("preview_url") and r.get("blur_image")
+                       else r.get("preview_url")
 ),
                 )
             )
-        return schemas.SearchResponse(results=out, has_more=has_more, total=len(out))
+        return schemas.SearchResponse(results=out, has_more=has_more)
 
     # ── CASE 2: Save query + results ──────────────────────────
     q = models.SearchQuery(
-        user_id=current_user.id if current_user else None,
         query=sanitized_query,          # store sanitized version
         filter_mode=effective_mode,
         total_results=total,
@@ -164,7 +140,7 @@ def perform_search(
             title=r["title"],
             url=r["url"],
             snippet=r["snippet"],
-            type=infer_result_type(r).value,
+            type=infer_result_type(r),
             is_blocked=False,
         )
         db.add(row)
@@ -184,10 +160,10 @@ def perform_search(
                 type=row.type,
                 timestamp=row.created_at,
                 preview_url=(
-                  r.get("preview_url") + "&blur=true"
-                  if r.get("preview_url") and r.get("blur_image")
-                  else r.get("preview_url")
+                    r.get("preview_url") + "&blur=true"
+                    if r.get("preview_url") and r.get("blur_image")
+                    else r.get("preview_url")
 ),
             )
         )
-    return schemas.SearchResponse(results=out, has_more=has_more, total=len(out))
+    return schemas.SearchResponse(results=out, has_more=has_more)
