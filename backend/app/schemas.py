@@ -82,7 +82,7 @@ class RefreshRequest(BaseModel):
 
 class SearchRequest(BaseModel):
     query      : str  = Field(..., min_length=1, max_length=500)
-    limit      : int  = Field(default=20, ge=1, le=100)
+    limit      : int  = Field(default=20, ge=1, le=500)
     filter_mode: Optional[str] = None
 
 
