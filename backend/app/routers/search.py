@@ -13,6 +13,8 @@ from typing import Dict, List
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 import requests
+from fastapi.security import OAuth2PasswordBearer
+from ..security.auth import decode_token
 
 from .. import models, schemas
 from ..database import get_db
@@ -30,6 +32,10 @@ router = APIRouter(prefix="/search", tags=["search"])
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+oauth2_optional = OAuth2PasswordBearer(
+    tokenUrl="/api/auth/login",
+    auto_error=False,
+)
 
 def infer_result_type(r: Dict) -> ResultType:
     if r.get("preview_url"):
@@ -43,6 +49,7 @@ def perform_search(
     request: Request,                           # needed for logging + rate limiting
     db: Session = Depends(get_db),
     _rl=Depends(search_rate_limit),             # Module 3: rate limit check
+    token: str = Depends(oauth2_optional),
 ):
     # ── Module 2: Sanitize input ──────────────────────────────
     sanitized_query = sanitize_input(payload.query)
@@ -61,6 +68,20 @@ def perform_search(
 
     if not sanitized_query.strip():
         raise HTTPException(status_code=400, detail="Query cannot be empty")
+
+    # ── Resolve logged-in user from token ─────────────────────
+    current_user = None
+    if token:
+        try:
+            jwt_payload = decode_token(token)
+            if jwt_payload and jwt_payload.get("type") == "access":
+                uid = int(jwt_payload.get("sub"))
+                current_user = db.query(models.User).filter(
+                    models.User.id == uid
+                ).first()
+        except Exception:
+            pass
+
 
     provider = get_provider()
     settings = get_or_create_global_settings(db)
@@ -122,6 +143,7 @@ def perform_search(
 
     # ── CASE 2: Save query + results ──────────────────────────
     q = models.SearchQuery(
+        user_id        = current_user.id if current_user else None,
         query=sanitized_query,          # store sanitized version
         filter_mode=effective_mode,
         total_results=total,
