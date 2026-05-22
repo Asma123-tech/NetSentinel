@@ -251,7 +251,7 @@ def filter_results(
             continue
 
         filtered.append(r)
-        return filtered, blocked_count
+    return filtered, blocked_count
 
 
 # ── Result type classification ─────────────────────────────────
