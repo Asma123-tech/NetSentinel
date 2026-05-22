@@ -146,7 +146,14 @@ function SearchPageInner() {
         } else {
           setResults(prev => {
             const existingUrls = new Set(prev.map(r => r.url));
-            const uniqueNew = data.filter(r => !existingUrls.has(r.url));
+            const existingPreviews = new Set(
+              prev.map(r => r.preview_url).filter(Boolean)
+            );
+            const uniqueNew = data.filter(r => {
+              if (existingUrls.has(r.url)) return false;
+              if (r.preview_url && existingPreviews.has(r.preview_url)) return false;
+              return true;
+            });
             return [...prev, ...uniqueNew];
           });
         }
