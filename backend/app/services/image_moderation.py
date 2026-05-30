@@ -1,15 +1,13 @@
 """
 Image moderation service — NetSentinel.
 
-Uses two AI models in sequence:
-  1. NudeNet      — fast ONNX-based detector for exposed body parts (primary)
-  2. Falconsai NSFW ViT — HuggingFace classifier as broader NSFW fallback
+Uses two AI models:
+  1. NudeNet  — fast ONNX body-part detector (primary)
+  2. Falconsai/nsfw_image_detection ViT — HuggingFace NSFW classifier (fallback)
 
-Only images that test positive on either model are blurred.
-Safe images pass through completely untouched.
-
-If both models fail (import error, download error, corrupt image),
-the image is returned as-is so normal content is never accidentally censored.
+Strict mode catches partial exposure (bikinis, suggestive poses) in addition
+to full nudity by including BELLY_EXPOSED, ARMPITS_EXPOSED, and using a
+lower confidence threshold (0.4 vs 0.6 for moderate).
 """
 
 from __future__ import annotations
@@ -22,8 +20,6 @@ from typing import Optional, Tuple
 from PIL import Image, ImageFilter
 
 # ── Lazy singletons ────────────────────────────────────────────
-# Models are loaded on first use so the backend starts instantly.
-# Subsequent calls reuse the cached instance.
 
 _nudenet_detector = None
 _hf_model         = None
@@ -31,7 +27,6 @@ _hf_processor     = None
 
 
 def _get_nudenet():
-    """Return a cached NudeDetector, or None if nudenet is not installed."""
     global _nudenet_detector
     if _nudenet_detector is not None:
         return _nudenet_detector
@@ -44,7 +39,6 @@ def _get_nudenet():
 
 
 def _get_hf_classifier():
-    """Return (model, processor) tuple, or (None, None) if not available."""
     global _hf_model, _hf_processor
     if _hf_model is not None:
         return _hf_model, _hf_processor
@@ -62,10 +56,21 @@ def _get_hf_classifier():
     return _hf_model, _hf_processor
 
 
-# ── Detection helpers ──────────────────────────────────────────
+# ── NudeNet class sets ─────────────────────────────────────────
 
-# Body-part classes that NudeNet flags as explicit
-_UNSAFE_CLASSES = {
+# Strict mode: full nudity + partial exposure (bikinis, suggestive poses)
+_UNSAFE_CLASSES_STRICT = {
+    "BUTTOCKS_EXPOSED",
+    "FEMALE_BREAST_EXPOSED",
+    "FEMALE_GENITALIA_EXPOSED",
+    "MALE_GENITALIA_EXPOSED",
+    "ANUS_EXPOSED",
+    "BELLY_EXPOSED",        # catches bikinis and crop-top exposure
+    "ARMPITS_EXPOSED",      # catches very suggestive poses
+}
+
+# Moderate mode: only full nudity
+_UNSAFE_CLASSES_MODERATE = {
     "BUTTOCKS_EXPOSED",
     "FEMALE_BREAST_EXPOSED",
     "FEMALE_GENITALIA_EXPOSED",
@@ -74,43 +79,46 @@ _UNSAFE_CLASSES = {
 }
 
 
-def _is_nude_by_detector(detections: list, threshold: float) -> bool:
-    """Return True if any detection exceeds the confidence threshold."""
+# ── Detection helpers ──────────────────────────────────────────
+
+def _is_nude_by_detector(
+    detections: list,
+    threshold: float,
+    unsafe_classes: set,
+) -> bool:
     for d in detections:
         label = (d.get("class") or d.get("label") or "").upper()
         score = float(d.get("score", 0.0))
-        if score >= threshold and any(u in label for u in _UNSAFE_CLASSES):
+        if score >= threshold and any(u in label for u in unsafe_classes):
             return True
     return False
 
 
-def _nudenet_is_explicit(image_bytes: bytes, threshold: float) -> bool:
-    """
-    Run NudeNet on the image bytes.
-    Handles both older API (accepts bytes) and newer API (requires file path).
-    Returns False on any error so safe images are never blocked by a crash.
-    """
+def _nudenet_is_explicit(
+    image_bytes: bytes,
+    threshold: float,
+    unsafe_classes: set,
+) -> bool:
     detector = _get_nudenet()
     if detector is None:
         return False
 
     try:
-        # Older NudeNet versions accept raw bytes directly
         detections = detector.detect(image_bytes)
-        return _is_nude_by_detector(detections, threshold)
+        return _is_nude_by_detector(detections, threshold, unsafe_classes)
     except TypeError:
-        pass  # Newer versions need a file path — fall through
+        pass
     except Exception:
         return False
 
-    # Newer NudeNet: write to a temp file and pass the path
+    # Newer NudeNet requires file path
     tmp_path = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
             tmp.write(image_bytes)
             tmp_path = tmp.name
         detections = detector.detect(tmp_path)
-        return _is_nude_by_detector(detections, threshold)
+        return _is_nude_by_detector(detections, threshold, unsafe_classes)
     except Exception:
         return False
     finally:
@@ -119,17 +127,12 @@ def _nudenet_is_explicit(image_bytes: bytes, threshold: float) -> bool:
 
 
 def _hf_is_explicit(image_bytes: bytes) -> bool:
-    """
-    Run the HuggingFace ViT NSFW classifier.
-    Returns False on any error.
-    """
     model, processor = _get_hf_classifier()
     if model is None or processor is None:
         return False
-
     try:
         import torch
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        image  = Image.open(BytesIO(image_bytes)).convert("RGB")
         inputs = processor(images=image, return_tensors="pt")
         with torch.no_grad():
             logits = model(**inputs).logits
@@ -139,10 +142,9 @@ def _hf_is_explicit(image_bytes: bytes) -> bool:
         return False
 
 
-# ── Blur rendering ─────────────────────────────────────────────
+# ── Blur ──────────────────────────────────────────────────────
 
 def _blur_image(image_bytes: bytes) -> bytes:
-    """Apply a strong Gaussian blur. Returns original bytes on failure."""
     try:
         img = Image.open(BytesIO(image_bytes)).convert("RGB")
         img = img.filter(ImageFilter.GaussianBlur(radius=20))
@@ -158,28 +160,27 @@ def _blur_image(image_bytes: bytes) -> bytes:
 def censor_if_needed(
     image_bytes: bytes,
     threshold: float = 0.5,
+    strict: bool = True,
 ) -> Tuple[bytes, bool]:
     """
-    Analyse image_bytes with AI models and blur if explicit content is detected.
+    Analyse image_bytes and blur if explicit content is detected.
+
+    Args:
+        image_bytes: Raw bytes of the image.
+        threshold:   Confidence threshold for NudeNet detections.
+                       strict mode  → 0.4  (catches partial exposure)
+                       moderate mode → 0.6  (full nudity only)
+        strict:      If True, uses the larger unsafe class set that
+                     includes belly and armpit exposure.
 
     Returns:
         (final_bytes, was_censored)
-
-    Detection order:
-      1. NudeNet  — fast body-part detector (primary)
-      2. HuggingFace ViT  — broader NSFW classifier (fallback)
-
-    If both models are unavailable or both raise exceptions the original
-    image is returned untouched (fail-open for safety of normal content).
-
-    Args:
-        image_bytes: Raw image bytes fetched from the remote URL.
-        threshold:   Minimum confidence score for NudeNet to trigger blur.
-                     0.6 for strict mode, 0.8 for moderate mode.
     """
-    # Primary: NudeNet body-part detector
+    unsafe_classes = _UNSAFE_CLASSES_STRICT if strict else _UNSAFE_CLASSES_MODERATE
+
+    # Primary: NudeNet
     try:
-        if _nudenet_is_explicit(image_bytes, threshold):
+        if _nudenet_is_explicit(image_bytes, threshold, unsafe_classes):
             return _blur_image(image_bytes), True
     except Exception:
         pass
@@ -191,5 +192,4 @@ def censor_if_needed(
     except Exception:
         pass
 
-    # Image is clean — return original untouched
     return image_bytes, False

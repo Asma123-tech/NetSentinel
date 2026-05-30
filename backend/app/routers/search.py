@@ -89,7 +89,6 @@ def perform_search(
 
     try:
         raw_results = provider.search(sanitized_query, filter_mode=effective_mode, limit=payload.limit)
-        has_more = len(raw_results) == payload.limit
     except requests.HTTPError:
         logger.exception("Upstream search provider HTTP error")
         return schemas.SearchResponse(results=[], has_more=False, total=0)
@@ -99,15 +98,19 @@ def perform_search(
     except Exception:
         raise
 
-    filtered, blocked_count = filter_results(
-        raw_results,
-        filter_mode=effective_mode,
-        blocked_keywords=settings.blocked_keywords or "",
-        allowed_domains=settings.allowed_domains or "",
-    )
+    all_filtered, blocked_count = filter_results(
+       raw_results,
+       filter_mode=effective_mode,
+       blocked_keywords=settings.blocked_keywords or "",
+       allowed_domains=settings.allowed_domains or "",
+   )
+   # Slice to one page worth of results
+    filtered  = all_filtered[:payload.limit]
+   # has_more is True if filtering produced more results than one page
+    has_more  = len(all_filtered) > payload.limit
 
     total = len(raw_results)
-    safe  = len(filtered)
+    safe  = len(all_filtered)
 
     # Module 6: Log the search (non-attack)
     log_security_event(

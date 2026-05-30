@@ -1,17 +1,14 @@
 """
 Search provider service — NetSentinel.
 
-Fetches results from the SearxNG instance and normalises them.
-
-Key features vs the original:
-  - FETCH_MULTIPLIER: fetches 4× the requested limit from SearxNG so
-    filtering.py has enough headroom to remove explicit text results
-    while still returning a full page of clean results.
-  - page param: passes pageno to SearxNG for true pagination.
-  - _safe_categories: strips the 'adult' category in strict/moderate mode.
-  - Protocol-relative URLs: fixes //example.com image URLs → https://
-  - mode param in preview_url: tells the media proxy which filter level
-    to apply so the AI moderation uses the right threshold.
+Key behaviour:
+  - FETCH_MULTIPLIER: fetches 4× limit so filtering has headroom
+  - page param: real SearxNG pagination
+  - _safe_categories: strips 'adult' in strict/moderate
+  - Protocol-relative URL fix: //host → https://host
+  - preview_url does NOT embed mode — the frontend's getImageSrc()
+    appends &mode=<filterMode> dynamically, so the media proxy always
+    receives the correct current mode without duplication.
 """
 
 from typing import Dict, List, Optional
@@ -22,10 +19,6 @@ import requests
 from ..config import settings
 from ..models import FilterMode
 
-
-# Raw results fetched from SearxNG = limit × FETCH_MULTIPLIER.
-# This gives filtering.py room to remove explicit text results
-# without leaving the page short of clean results.
 FETCH_MULTIPLIER = 4
 
 
@@ -51,7 +44,6 @@ class SearxNGProvider(BaseProvider):
         self.categories = categories or settings.SEARXNG_CATEGORIES
 
     def _safe_categories(self, filter_mode: FilterMode) -> str:
-        """Remove the 'adult' SearxNG category in strict/moderate modes."""
         if filter_mode == FilterMode.relaxed:
             return self.categories
         cats = [
@@ -62,24 +54,18 @@ class SearxNGProvider(BaseProvider):
         return ",".join(cats) if cats else "general"
 
     def _normalize_img_url(self, img: str) -> str:
-        """Fix protocol-relative (//host/path) and localhost image URLs."""
         if not img:
             return img
-
-        # Fix protocol-relative URLs  //cdn.example.com/img.jpg
+        # Fix protocol-relative URLs: //cdn.example.com → https://cdn.example.com
         if img.startswith("//"):
             img = "https:" + img
-
         parsed_img = urlparse(img)
         base       = urlparse(self.base_url)
-
-        # Fix localhost / missing host (SearxNG sometimes proxies images)
         if parsed_img.hostname in ("localhost", "127.0.0.1") or not parsed_img.netloc:
             parsed_img = parsed_img._replace(
                 scheme=base.scheme, netloc=base.netloc
             )
             img = urlunparse(parsed_img)
-
         return img
 
     def search(
@@ -89,14 +75,12 @@ class SearxNGProvider(BaseProvider):
         limit: int = 10,
         page: int = 1,
     ) -> List[Dict]:
-        # SearxNG safesearch: 0=off, 1=moderate, 2=strict
         safesearch = {
             FilterMode.strict:   2,
             FilterMode.moderate: 1,
             FilterMode.relaxed:  0,
         }.get(filter_mode, 2)
 
-        # Fetch more than needed so filtering has headroom
         fetch_limit = limit * FETCH_MULTIPLIER
 
         params = {
@@ -119,7 +103,6 @@ class SearxNGProvider(BaseProvider):
 
         raw_results: List[Dict] = []
 
-        # Convert the SearxNG format to our internal dict format
         for item in data.get("results", [])[:fetch_limit]:
             title      = item.get("title") or item.get("url") or "Untitled"
             snippet    = item.get("content") or ""
@@ -130,11 +113,10 @@ class SearxNGProvider(BaseProvider):
 
             if img:
                 img = self._normalize_img_url(img)
-                # Pass the current filter mode so the media proxy applies
-                # the correct AI moderation threshold for this image
-                encoded     = quote_plus(img)
-                mode_str    = filter_mode.value if hasattr(filter_mode, "value") else str(filter_mode)
-                preview_url = f"/api/media/proxy?url={encoded}&mode={mode_str}"
+                encoded = quote_plus(img)
+                # Do NOT embed mode here — frontend getImageSrc() appends
+                # &mode=<currentMode> dynamically to avoid duplication
+                preview_url = f"/api/media/proxy?url={encoded}"
 
             raw_results.append({
                 "title":       title,
@@ -145,8 +127,6 @@ class SearxNGProvider(BaseProvider):
 
         return raw_results
 
-
-# ── Singleton ──────────────────────────────────────────────────
 
 _provider_singleton: Optional[BaseProvider] = None
 
