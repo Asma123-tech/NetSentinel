@@ -15,26 +15,26 @@ server:
   image_proxy: true
 
 outgoing:
-  request_timeout: 20
-  retries: 2
-  keepalive_expiry: 10.0
+  request_timeout: 30
+  retries: 3
+  keepalive_expiry: 15.0
 
 engines:
   # 🔴 Disable Startpage (text)
   - name: startpage
-    disabled: true
+    disabled: false
 
   # 🔴 Disable Startpage (images)
   - name: startpage images
-    disabled: true
+    disabled: false
 
   # 🔴 Disable DuckDuckGo (text)
   - name: duckduckgo
-    disabled: true
+    disabled: false
 
   # 🔴 Disable DuckDuckGo (images)
   - name: duckduckgo images
-    disabled: true
+    disabled: false
 
   # your original overrides
   - name: pinterest

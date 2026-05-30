@@ -3,7 +3,7 @@ import './globals.css';
 import Providers from '@/components/Providers';
 
 export const metadata: Metadata = {
-  title: 'NetSentinel — Safe Search Engine',
+  title: 'NetSentinel — Safe Search Platform',
   description: 'A secure search environment for safe browsing.',
 };
 

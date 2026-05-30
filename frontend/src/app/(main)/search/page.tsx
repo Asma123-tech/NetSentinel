@@ -28,7 +28,7 @@ const THEME = {
 
 type Tab = 'all' | 'images';
 const PAGE_SIZE_ALL = 20;
-const PAGE_SIZE_IMAGES = 80;
+const PAGE_SIZE_IMAGES = 20;
 
 // ── Sub-components ─────────────────────────────────────────────
 
@@ -266,7 +266,7 @@ function SearchPageInner() {
         <h1 className="text-3xl sm:text-5xl font-extrabold text-black drop-shadow-[0_2px_8px_rgba(255,255,255,0.6)]">
           NetSentinel
         </h1>
-        <p className="text-black/80 font-medium mt-1">Safe Search Engine</p>
+        <p className="text-black/80 font-medium mt-1">Safe Search Platform</p>
       </div>
 
       {/* Search bar */}
@@ -286,7 +286,7 @@ function SearchPageInner() {
               setHasSearched(false);
             }}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search the web freely and safely..."
+            placeholder="Search the web safely"
             className="w-full min-w-0 rounded-3xl border border-slate-300/50 bg-white/50 pl-12 pr-32 sm:pr-40 py-3 text-sm sm:text-lg text-slate-900 font-medium shadow-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-300 overflow-x-auto"
           />
           <button
