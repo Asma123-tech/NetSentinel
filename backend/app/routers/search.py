@@ -107,7 +107,7 @@ def perform_search(
    # Slice to one page worth of results
     filtered  = all_filtered[:payload.limit]
    # has_more is True if filtering produced more results than one page
-    has_more  = len(all_filtered) > payload.limit
+    has_more  = len(raw_results) > 0
 
     total = len(raw_results)
     safe  = len(all_filtered)
