@@ -1,30 +1,31 @@
 """
-Content filtering service for NetSentinel.
+Content filtering service — NetSentinel.
 
-FIXES vs original:
-  1. Uses regex word-boundary matching (\b) instead of plain substring
-     matching — prevents false positives like "essex" matching "sex".
-  2. Checks the result URL / domain as well as title + snippet.
-  3. STRICT_KEYWORDS expanded to ~50 explicit terms.
-  4. Added a hardcoded BLOCKED_DOMAINS set for high-traffic adult sites
-     that should always be blocked regardless of their page titles.
-  5. MODERATE_KEYWORDS expanded to cover more common explicit terms.
+Filters raw search results using:
+  1. Hardcoded domain blocklist   — high-traffic adult sites blocked by domain
+  2. Allowed-domains whitelist    — if configured, blocks everything outside
+  3. Keyword scan (text results)  — explicit text/link results are removed
+
+NOTE ON IMAGE RESULTS:
+  Image results that contain explicit keywords in their title/snippet/URL
+  are NOT removed here.  Instead they are passed to the media proxy with
+  the current filter mode so the AI moderation pipeline (NudeNet +
+  HuggingFace) can decide whether to blur them.  This gives accurate,
+  content-aware filtering instead of over-blocking based on words alone
+  (e.g. a medical article about "breast cancer" would be wrongly blocked
+  by pure keyword matching).
 """
 
 import re
 from typing import Dict, List, Optional, Set, Tuple
 from urllib.parse import urlparse
 
-from ..models import FilterMode, ResultType
+from ..models import FilterMode
 
 
 # ── Keyword lists ──────────────────────────────────────────────
-# All lowercase. Matched with \b word boundaries so "sex" does NOT
-# match "essex", "middlesex", "sexuality" in legitimate educational
-# contexts (though "sexual" itself is still in the list for strict mode).
 
 STRICT_KEYWORDS: Set[str] = {
-    # Core explicit terms
     "porn", "pornography", "porno", "pornographic",
     "xxx", "x-rated", "xrated",
     "nude", "nudity", "nudist", "naked",
@@ -34,8 +35,6 @@ STRICT_KEYWORDS: Set[str] = {
     "hentai", "ecchi", "doujin",
     "explicit", "explicit content",
     "obscene", "obscenity",
-
-    # Acts / body (clinical terms acceptable in education — blocked here for safety)
     "masturbation", "masturbate",
     "orgasm", "ejaculation",
     "intercourse", "fornication",
@@ -43,20 +42,14 @@ STRICT_KEYWORDS: Set[str] = {
     "penis", "vagina", "vulva", "anus", "rectum",
     "breasts", "nipple", "nipples",
     "pubic",
-
-    # Industry / fetish terms
     "fetish", "bondage", "bdsm", "dominatrix", "sadomasochism",
     "escort service", "call girl", "sex worker", "prostitute", "prostitution",
     "brothel", "bordello", "red light",
     "cam girl", "camgirl", "onlyfans", "only fans",
     "stripper", "strip club", "lap dance",
     "playboy", "penthouse",
-
-    # Violent / illegal sexual content
     "rape", "molestation", "child porn", "child abuse",
     "incest", "bestiality",
-
-    # Common euphemisms used in explicit content titles
     "milf", "gilf", "dilf",
     "threesome", "gangbang", "orgy",
     "creampie", "cumshot", "blowjob", "handjob",
@@ -64,7 +57,6 @@ STRICT_KEYWORDS: Set[str] = {
 }
 
 MODERATE_KEYWORDS: Set[str] = {
-    # A smaller set — filters the most obvious terms but allows more through
     "porn", "pornography", "porno",
     "xxx", "x-rated",
     "nude", "nudity", "naked",
@@ -82,14 +74,10 @@ MODERATE_KEYWORDS: Set[str] = {
     "blowjob", "handjob", "cumshot",
 }
 
-# Relaxed mode applies zero base keyword blocking.
-# Custom blocked_keywords from settings still apply.
 RELAXED_KEYWORDS: Set[str] = set()
 
 
-# ── Domain blocklist ───────────────────────────────────────────
-# High-traffic explicit sites blocked at domain level in strict/moderate modes.
-# These are blocked even if their page titles look clean.
+# ── Domain blocklists ──────────────────────────────────────────
 
 BLOCKED_DOMAINS_STRICT: Set[str] = {
     "pornhub.com", "xvideos.com", "xhamster.com", "xnxx.com",
@@ -104,10 +92,8 @@ BLOCKED_DOMAINS_STRICT: Set[str] = {
     "rule34.xxx", "gelbooru.com", "danbooru.donmai.us",
     "nhentai.net", "e-hentai.org", "hentaihaven.xxx",
     "literotica.com", "sexstories.com",
-    "redlight.de", "sexfilme.de",
 }
 
-# Moderate mode uses a smaller domain blocklist
 BLOCKED_DOMAINS_MODERATE: Set[str] = {
     "pornhub.com", "xvideos.com", "xhamster.com", "xnxx.com",
     "redtube.com", "youporn.com", "tube8.com", "spankbang.com",
@@ -137,29 +123,14 @@ def get_blocked_domains(mode: FilterMode) -> Set[str]:
 
 
 def _build_pattern(keywords: Set[str]) -> Optional[re.Pattern]:
-    """
-    Compile a single regex that matches any keyword at a word boundary.
-    Using one compiled pattern is much faster than looping over keywords.
-    Multi-word phrases use a simple space/non-word boundary approach.
-    """
+    """Compile all keywords into one fast regex with word boundaries."""
     if not keywords:
         return None
-
-    parts = []
-    for kw in keywords:
-        if " " in kw:
-            # Multi-word phrase: match with \b at start and end
-            escaped = re.escape(kw)
-            parts.append(rf"\b{escaped}\b")
-        else:
-            parts.append(rf"\b{re.escape(kw)}\b")
-
-    pattern = "|".join(parts)
-    return re.compile(pattern, re.IGNORECASE)
+    parts = [rf"\b{re.escape(kw)}\b" for kw in keywords]
+    return re.compile("|".join(parts), re.IGNORECASE)
 
 
 def text_contains_banned(text: str, pattern: Optional[re.Pattern]) -> bool:
-    """Returns True if the text matches any banned keyword (word-boundary aware)."""
     if pattern is None:
         return False
     return bool(pattern.search(text))
@@ -172,10 +143,8 @@ def parse_csv(text: str) -> List[str]:
 
 
 def get_root_domain(url: str) -> str:
-    """Extract root domain (e.g. 'pornhub.com') from a full URL."""
     try:
         hostname = urlparse(url).hostname or ""
-        # Strip leading 'www.' or other subdomains — compare root domain only
         parts = hostname.lower().split(".")
         if len(parts) >= 2:
             return f"{parts[-2]}.{parts[-1]}"
@@ -198,68 +167,69 @@ def filter_results(
     Returns:
         (filtered_results, blocked_count)
 
-    Blocking logic (in order):
-      1. Domain blocklist (hardcoded explicit sites)
-      2. Allowed domains whitelist (if configured — blocks everything else)
-      3. Keyword scan on title + snippet + URL path
+    Blocking order:
+      1. Domain blocklist  — always blocks, even for image results
+      2. Allowed whitelist — blocks everything outside the whitelist
+      3. Keyword scan      — only blocks TEXT results; image results with
+                             explicit keywords are allowed through so the
+                             AI image moderation pipeline can evaluate them
     """
     base_keywords   = get_base_keywords(filter_mode)
     extra_blocked   = set(parse_csv(blocked_keywords))
     all_keywords    = base_keywords.union(extra_blocked)
     blocked_domains = get_blocked_domains(filter_mode)
+    allowed_set     = set(parse_csv(allowed_domains))
 
-    allowed_set = set(parse_csv(allowed_domains))
-
-    # Compile one pattern for the full keyword set (fast single-pass matching)
     pattern = _build_pattern(all_keywords)
 
     filtered: List[Dict] = []
     blocked_count = 0
 
     for r in raw_results:
-        url        = r.get("url", "")
-        title      = r.get("title", "")
-        snippet    = r.get("snippet", "") or ""
-        root_dom   = get_root_domain(url)
-        full_dom   = (urlparse(url).hostname or "").lower()
+        url      = r.get("url", "")
+        title    = r.get("title", "")
+        snippet  = r.get("snippet", "") or ""
+        root_dom = get_root_domain(url)
+        full_dom = (urlparse(url).hostname or "").lower()
 
-        # ── 1. Hardcoded domain blocklist ─────────────────────
+        # ── 1. Domain blocklist ────────────────────────────────
         if root_dom in blocked_domains or full_dom in blocked_domains:
             blocked_count += 1
             continue
 
-        # ── 2. Allowed-domains whitelist ──────────────────────
-        # If any allowed domains are configured, block everything outside that list
+        # ── 2. Allowed-domains whitelist ───────────────────────
         if allowed_set and root_dom not in allowed_set and full_dom not in allowed_set:
             blocked_count += 1
             continue
 
-        # ── 3. Keyword scan ───────────────────────────────────
-        scan_text = f"{title} {snippet} {url}"
+        # ── 3. Keyword scan ────────────────────────────────────
+        scan_text   = f"{title} {snippet} {url}"
         is_explicit = text_contains_banned(scan_text, pattern)
 
         if is_explicit:
-            has_image = bool(r.get("preview_url"))
-            if has_image:
-                # Show image results but mark them for blurring
-                r_copy = r.copy()
-                r_copy["blur_image"] = True
-                filtered.append(r_copy)
+            if r.get("preview_url"):
+                # Image result with explicit keywords:
+                # Let it through — the AI moderation pipeline in media.py
+                # will analyse the actual pixel content and blur if needed.
+                # This avoids over-blocking safe images whose titles happen
+                # to contain ambiguous words.
+                filtered.append(r)
             else:
-                # Block explicit text/link results entirely
+                # Pure text / link result with explicit keywords: block it.
                 blocked_count += 1
             continue
 
         filtered.append(r)
+
     return filtered, blocked_count
 
 
 # ── Result type classification ─────────────────────────────────
 
-def classify_result_type(url: str) -> ResultType:
+def classify_result_type(url: str):
     u = url.lower()
     if "youtube.com" in u or "vimeo.com" in u or "dailymotion.com" in u:
-        return ResultType.video
+        return "video"
     if any(u.endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".gif", ".webp")):
-        return ResultType.image
-    return ResultType.text
+        return "image"
+    return "text"

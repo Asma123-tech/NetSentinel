@@ -1,4 +1,4 @@
-# requirements.txt  — UPDATED (security modules added)
+# requirements.txt — UPDATED (AI image moderation enabled)
 
 # ── Original dependencies (unchanged) ────────────────────────
 fastapi
@@ -15,11 +15,17 @@ requests
 # For CORS middleware
 python-multipart
 
-# Image censoring
-#nudenet
+# ── Image moderation ──────────────────────────────────────────
+# Pillow for blur rendering
 Pillow
-#torch --index-url https://download.pytorch.org/whl/cpu
-#transformers
+
+# NudeNet — detects exposed body parts using ONNX
+nudenet
+
+# PyTorch CPU-only + HuggingFace — NSFW classifier fallback
+# Using extra-index-url for the lightweight CPU build (~200MB vs ~2GB GPU)
+torch --index-url https://download.pytorch.org/whl/cpu
+transformers
 
 # ── MODULE 4: Authentication & Session Management ─────────────
 python-jose[cryptography]   # JWT creation and validation

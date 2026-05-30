@@ -1,15 +1,17 @@
 """
-Search provider service for NetSentinel.
+Search provider service — NetSentinel.
 
-FIXES vs original:
-  1. Fetches a buffer of results (limit × FETCH_MULTIPLIER) from SearxNG
-     so that after filtering.py removes explicit content, enough clean
-     results remain. Previously, fetching exactly `limit` results meant
-     filtering could leave only 5-8 visible results on mobile.
-  2. Excludes the SearxNG "adult" category in strict/moderate modes so
-     the source itself is cleaner before filtering runs.
-  3. No other logic changes — safesearch mapping, URL normalisation,
-     and provider singleton are unchanged.
+Fetches results from the SearxNG instance and normalises them.
+
+Key features vs the original:
+  - FETCH_MULTIPLIER: fetches 4× the requested limit from SearxNG so
+    filtering.py has enough headroom to remove explicit text results
+    while still returning a full page of clean results.
+  - page param: passes pageno to SearxNG for true pagination.
+  - _safe_categories: strips the 'adult' category in strict/moderate mode.
+  - Protocol-relative URLs: fixes //example.com image URLs → https://
+  - mode param in preview_url: tells the media proxy which filter level
+    to apply so the AI moderation uses the right threshold.
 """
 
 from typing import Dict, List, Optional
@@ -21,9 +23,9 @@ from ..config import settings
 from ..models import FilterMode
 
 
-# How many raw results to fetch from SearxNG per `limit` requested.
-# e.g. if the frontend wants 20 results and the multiplier is 4,
-# we fetch 80 from SearxNG — filtering then reduces it to ≤20 clean ones.
+# Raw results fetched from SearxNG = limit × FETCH_MULTIPLIER.
+# This gives filtering.py room to remove explicit text results
+# without leaving the page short of clean results.
 FETCH_MULTIPLIER = 4
 
 
@@ -33,15 +35,12 @@ class BaseProvider:
         query: str,
         filter_mode: FilterMode,
         limit: int = 10,
+        page: int = 1,
     ) -> List[Dict]:
         raise NotImplementedError
 
 
 class SearxNGProvider(BaseProvider):
-    """
-    Calls your SearxNG instance /search?format=json and normalises results
-    to {title, url, snippet, preview_url}.
-    """
 
     def __init__(
         self,
@@ -52,14 +51,9 @@ class SearxNGProvider(BaseProvider):
         self.categories = categories or settings.SEARXNG_CATEGORIES
 
     def _safe_categories(self, filter_mode: FilterMode) -> str:
-        """
-        Remove the 'adult' category from the SearxNG request in strict/moderate
-        modes so SearxNG itself doesn't route the query to adult engines.
-        In relaxed mode the configured categories are used as-is.
-        """
+        """Remove the 'adult' SearxNG category in strict/moderate modes."""
         if filter_mode == FilterMode.relaxed:
             return self.categories
-
         cats = [
             c.strip()
             for c in self.categories.split(",")
@@ -68,13 +62,18 @@ class SearxNGProvider(BaseProvider):
         return ",".join(cats) if cats else "general"
 
     def _normalize_img_url(self, img: str) -> str:
+        """Fix protocol-relative (//host/path) and localhost image URLs."""
         if not img:
             return img
 
-        parsed_img = urlparse(img)
-        base = urlparse(self.base_url)  # e.g. http://searxng:8080
+        # Fix protocol-relative URLs  //cdn.example.com/img.jpg
+        if img.startswith("//"):
+            img = "https:" + img
 
-        # If SearxNG returned a localhost/relative URL, swap in the container host
+        parsed_img = urlparse(img)
+        base       = urlparse(self.base_url)
+
+        # Fix localhost / missing host (SearxNG sometimes proxies images)
         if parsed_img.hostname in ("localhost", "127.0.0.1") or not parsed_img.netloc:
             parsed_img = parsed_img._replace(
                 scheme=base.scheme, netloc=base.netloc
@@ -91,15 +90,14 @@ class SearxNGProvider(BaseProvider):
         page: int = 1,
     ) -> List[Dict]:
         # SearxNG safesearch: 0=off, 1=moderate, 2=strict
-        safesearch_map = {
+        safesearch = {
             FilterMode.strict:   2,
             FilterMode.moderate: 1,
             FilterMode.relaxed:  0,
-        }
-        safesearch = safesearch_map.get(filter_mode, 2)
+        }.get(filter_mode, 2)
 
-        # Fetch a multiple of the requested limit so filtering has headroom
-        fetch_limit = limit
+        # Fetch more than needed so filtering has headroom
+        fetch_limit = limit * FETCH_MULTIPLIER
 
         params = {
             "q":          query,
@@ -110,21 +108,18 @@ class SearxNGProvider(BaseProvider):
             "pageno":     page,
         }
 
-        url     = f"{self.base_url}/search"
-        headers = {
-            "User-Agent": (
-                "NetSentinelSafeSearch/1.0 "
-                "(student project; contact: youremail@example.com)"
-            )
-        }
-
-        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        resp = requests.get(
+            f"{self.base_url}/search",
+            params=params,
+            headers={"User-Agent": "NetSentinelSafeSearch/1.0 (student project)"},
+            timeout=10,
+        )
         resp.raise_for_status()
         data = resp.json()
 
         raw_results: List[Dict] = []
 
-        # Slice at fetch_limit (not limit) — filtering.py will reduce further
+        # Convert the SearxNG format to our internal dict format
         for item in data.get("results", [])[:fetch_limit]:
             title      = item.get("title") or item.get("url") or "Untitled"
             snippet    = item.get("content") or ""
@@ -135,34 +130,29 @@ class SearxNGProvider(BaseProvider):
 
             if img:
                 img = self._normalize_img_url(img)
+                # Pass the current filter mode so the media proxy applies
+                # the correct AI moderation threshold for this image
                 encoded     = quote_plus(img)
-                preview_url = f"/api/media/proxy?url={encoded}"
+                mode_str    = filter_mode.value if hasattr(filter_mode, "value") else str(filter_mode)
+                preview_url = f"/api/media/proxy?url={encoded}&mode={mode_str}"
 
-            raw_results.append(
-                {
-                    "title":       title,
-                    "url":         result_url,
-                    "snippet":     snippet,
-                    "preview_url": preview_url,
-                }
-            )
+            raw_results.append({
+                "title":       title,
+                "url":         result_url,
+                "snippet":     snippet,
+                "preview_url": preview_url,
+            })
 
         return raw_results
 
 
 # ── Singleton ──────────────────────────────────────────────────
 
-_provider_singleton: BaseProvider | None = None
+_provider_singleton: Optional[BaseProvider] = None
 
 
 def get_provider() -> BaseProvider:
     global _provider_singleton
-    if _provider_singleton is not None:
-        return _provider_singleton
-
-    if settings.SEARCH_PROVIDER.lower() == "searxng":
+    if _provider_singleton is None:
         _provider_singleton = SearxNGProvider()
-    else:
-        _provider_singleton = SearxNGProvider()
-
     return _provider_singleton

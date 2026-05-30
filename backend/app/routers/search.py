@@ -132,11 +132,7 @@ def perform_search(
                     snippet=r["snippet"],
                     type=infer_result_type(r),
                     timestamp=now,
-                    preview_url=(
-                       r.get("preview_url") + "&blur=true"
-                       if r.get("preview_url") and r.get("blur_image")
-                       else r.get("preview_url")
-),
+                    preview_url=r.get("preview_url"),
                 )
             )
         return schemas.SearchResponse(results=out, has_more=has_more, total=len(out))
@@ -181,11 +177,7 @@ def perform_search(
                 snippet=row.snippet,
                 type=row.type,
                 timestamp=row.created_at,
-                preview_url=(
-                    r.get("preview_url") + "&blur=true"
-                    if r.get("preview_url") and r.get("blur_image")
-                    else r.get("preview_url")
-),
+                preview_url=r.get("preview_url"),
             )
         )
     return schemas.SearchResponse(results=out, has_more=has_more, total=len(out))
