@@ -37,7 +37,7 @@ cd backend
 docker compose \
     -f docker-compose.yml \
     -f docker-compose.prod.yml \
-    build --no-cache
+    build
 
 # ── Step 3: Restart all containers ───────────────────────────
 echo ""
