@@ -84,7 +84,8 @@ class SearchRequest(BaseModel):
     query      : str  = Field(..., min_length=1, max_length=500)
     limit      : int  = Field(default=20, ge=1, le=500)
     filter_mode: Optional[str] = None
-
+    page       : int  = Field(default=1, ge=1)
+    categories : Optional[str] = None
 
 class SearchResultResponse(BaseModel):
     id         : int

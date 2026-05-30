@@ -42,7 +42,7 @@ export default function Header({
               <h1 className="text-base sm:text-lg font-semibold text-slate-900">
                 NetSentinel
               </h1>
-              <p className="text-xs text-slate-500">Safe Search Engine</p>
+              <p className="text-xs text-slate-500">Safe Search Platform</p>
             </div>
           </Link>
         </div>

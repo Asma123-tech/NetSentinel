@@ -88,7 +88,13 @@ def perform_search(
     effective_mode = payload.filter_mode or settings.filter_mode
 
     try:
-        raw_results = provider.search(sanitized_query, filter_mode=effective_mode, limit=payload.limit)
+        raw_results = provider.search(
+            sanitized_query,
+            filter_mode=effective_mode,
+            limit=payload.limit,
+            page=payload.page,
+            categories=payload.categories,
+)
     except requests.HTTPError:
         logger.exception("Upstream search provider HTTP error")
         return schemas.SearchResponse(results=[], has_more=False, total=0)

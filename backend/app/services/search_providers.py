@@ -74,6 +74,7 @@ class SearxNGProvider(BaseProvider):
         filter_mode: FilterMode,
         limit: int = 10,
         page: int = 1,
+        categories: Optional[str] = None,
     ) -> List[Dict]:
         safesearch = {
             FilterMode.strict:   2,
@@ -86,7 +87,7 @@ class SearxNGProvider(BaseProvider):
         params = {
             "q":          query,
             "format":     "json",
-            "categories": self._safe_categories(filter_mode),
+            "categories": categories or self._safe_categories(filter_mode),
             "language":   "en",
             "safesearch": safesearch,
             "pageno":     page,

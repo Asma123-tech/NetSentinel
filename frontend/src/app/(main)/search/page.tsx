@@ -28,7 +28,7 @@ const THEME = {
 
 type Tab = 'all' | 'images';
 const PAGE_SIZE_ALL = 20;
-const PAGE_SIZE_IMAGES = 20;
+const PAGE_SIZE_IMAGES = 40;
 
 // ── Sub-components ─────────────────────────────────────────────
 
@@ -137,8 +137,9 @@ function SearchPageInner() {
         const { results: data, has_more } = await performSearch(
           searchQuery,
           mode,
-          size,       // ← fixed size per page, not cumulative
-          newPage,    // ← actual page number
+          size,
+          newPage,
+          tab === 'images' ? 'images' : 'general,images',
         );
 
         if (newPage === 1) {
